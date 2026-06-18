@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Hub Locations</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .submit-btn { padding: 12px 32px; background: #1a3a5c; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .submit-btn:hover { background: #2c5f8a; }
+  .submit-btn:disabled { background: #aaa; cursor: not-allowed; }
+  .edit-btn { padding: 6px 14px; background: #1a3a5c; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .edit-btn:hover { background: #2c5f8a; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
+  table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+  table tr:hover { background: #f8f9fa; }
+  .empty-msg { text-align: center; color: #888; padding: 30px; font-size: 14px; }
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 500; justify-content: center; align-items: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: white; border-radius: 10px; max-width: 500px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,0.25); overflow: hidden; max-height: 90vh; overflow-y: auto; }
+  .modal::-webkit-scrollbar { width: 6px; }
+  .modal::-webkit-scrollbar-track { background: #f1f1f1; }
+  .modal::-webkit-scrollbar-thumb { background: #1a3a5c; border-radius: 3px; }
+  .modal-header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h3 { font-size: 16px; font-weight: 600; }
+  .modal-header .close-btn { background: none; border: none; color: white; font-size: 22px; cursor: pointer; opacity: 0.8; line-height: 1; }
+  .modal-header .close-btn:hover { opacity: 1; }
+  .modal-body { padding: 24px; }
+  .modal-body .form-group { margin-bottom: 14px; }
+  .id-display { font-size: 13px; color: #666; background: #f8f9fa; padding: 8px 12px; border-radius: 4px; margin-bottom: 14px; }
+  .id-display strong { color: #1a3a5c; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 769px) { .hamburger { display: none; } }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="hub-locations.html" class="active"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Hub Locations</h1><div class="header-sub">Manage shipping hub locations</div></div>
+    <div class="header-right">
+      <span class="status-dot disconnected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Not connected</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Existing Hub Locations</h2>
+      <div id="hubTableWrap">
+        <div class="empty-msg" id="loadingMsg">Loading hub locations...</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Add New Hub</h2>
+      <div class="form-group">
+        <label>Location ID</label>
+        <input type="text" id="locationId" placeholder="e.g. HUB-001">
+      </div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="hubName" placeholder="e.g. Pittsburgh Warehouse">
+      </div>
+      <div class="form-group">
+        <label>Street Address</label>
+        <input type="text" id="hubStreet" placeholder="e.g. 123 Main St">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>City</label>
+          <input type="text" id="hubCity" placeholder="e.g. Pittsburgh">
+        </div>
+        <div class="form-group">
+          <label>State</label>
+          <input type="text" id="hubState" placeholder="e.g. PA">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ZIP</label>
+        <input type="text" id="hubZip" placeholder="e.g. 15201" style="max-width:140px;">
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="hubNotes" placeholder="Any additional notes..."></textarea>
+      </div>
+      <button class="submit-btn" id="addBtn" onclick="addHub()">Add Hub</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Hub — <span id="editHubTitle"></span></h3>
+      <button class="close-btn" onclick="closeEditModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="id-display">Location ID: <strong id="editLocId"></strong></div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="editName">
+      </div>
+      <div class="form-group">
+        <label>Street Address</label>
+        <input type="text" id="editStreet">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>City</label>
+          <input type="text" id="editCity">
+        </div>
+        <div class="form-group">
+          <label>State</label>
+          <input type="text" id="editState">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ZIP</label>
+        <input type="text" id="editZip" style="max-width:140px;">
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="editNotes"></textarea>
+      </div>
+      <button class="submit-btn" id="saveBtn" onclick="saveHub()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:600;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '';
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+
+function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
+
+let _jsonpCounter = 0;
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function setStatus(state, label) {
+  document.getElementById('statusDot').className = 'status-dot ' + state;
+  document.getElementById('statusLabel').textContent = label;
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 3000);
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
+let hubsData = [];
+
+function renderHubTable(hubs) {
+  hubsData = hubs || [];
+  const wrap = document.getElementById('hubTableWrap');
+  if (!hubsData.length) {
+    wrap.innerHTML = '<div class="empty-msg">No hub locations found. Add one below.</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Location ID</th><th>Name</th><th>Address</th><th>Notes</th><th>Actions</th></tr></thead><tbody>';
+  hubsData.forEach((h, i) => {
+    html += '<tr>';
+    html += '<td>' + escHtml(h['Location ID']||'') + '</td>';
+    html += '<td>' + escHtml(h['Name']||'') + '</td>';
+    html += '<td>' + escHtml(h['Address']||'') + '</td>';
+    html += '<td>' + escHtml(h['Notes']||'') + '</td>';
+    html += '<td><button class="edit-btn" onclick="openEditModal(' + i + ')">Edit</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function parseAddress(address) {
+  if (!address) return { street: '', city: '', state: '', zip: '' };
+  const parts = address.split(', ');
+  if (parts.length >= 3) {
+    const street = parts[0] || '';
+    const city = parts[1] || '';
+    // Third part could be "State ZIP" or just "State"
+    const stateZipPart = parts.slice(2).join(', ');
+    const stateZipMatch = stateZipPart.match(/^(.+?)\s+(\d{5}(?:-\d{4})?)$/);
+    if (stateZipMatch) {
+      return { street, city, state: stateZipMatch[1], zip: stateZipMatch[2] };
+    } else {
+      return { street, city, state: stateZipPart, zip: '' };
+    }
+  } else if (parts.length === 2) {
+    return { street: parts[0], city: parts[1], state: '', zip: '' };
+  } else {
+    return { street: address, city: '', state: '', zip: '' };
+  }
+}
+
+let editingIndex = -1;
+
+function openEditModal(index) {
+  const hub = hubsData[index];
+  if (!hub) return;
+  editingIndex = index;
+  const parsed = parseAddress(hub['Address'] || '');
+  document.getElementById('editHubTitle').textContent = hub['Name'] || '';
+  document.getElementById('editLocId').textContent = hub['Location ID'] || '';
+  document.getElementById('editName').value = hub['Name'] || '';
+  document.getElementById('editStreet').value = parsed.street;
+  document.getElementById('editCity').value = parsed.city;
+  document.getElementById('editState').value = parsed.state;
+  document.getElementById('editZip').value = parsed.zip;
+  document.getElementById('editNotes').value = hub['Notes'] || '';
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editingIndex = -1;
+}
+
+async function saveHub() {
+  if (editingIndex < 0) return;
+  const name = document.getElementById('editName').value.trim();
+  const street = document.getElementById('editStreet').value.trim();
+  const city = document.getElementById('editCity').value.trim();
+  const state = document.getElementById('editState').value.trim();
+  const zip = document.getElementById('editZip').value.trim();
+  const notes = document.getElementById('editNotes').value.trim();
+
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!street) { showToast('Street address is required', 'error'); return; }
+
+  const address = street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '');
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  try {
+    const json = await jsonpRequest(scriptUrl, {
+      action: 'updatehub',
+      row: editingIndex,
+      name: name,
+      address: address,
+      notes: notes
+    });
+    if (json.success) {
+      showToast('Hub updated successfully', 'success');
+      closeEditModal();
+      loadHubs();
+    } else {
+      showToast(json.error || 'Failed to update hub', 'error');
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Save Changes';
+}
+
+async function loadHubs() {
+  if (!scriptUrl) { setStatus('disconnected', 'No URL — go to Settings'); document.getElementById('hubTableWrap').innerHTML = '<div class="empty-msg">No script URL configured.</div>'; return; }
+  setStatus('pending', 'Loading...');
+  try {
+    const json = await jsonpRequest(scriptUrl, { action: 'readhubs' });
+    if (json.success) {
+      setStatus('connected', 'Connected');
+      renderHubTable(json.data || []);
+    } else {
+      setStatus('disconnected', 'Error');
+      document.getElementById('hubTableWrap').innerHTML = '<div class="empty-msg">Failed to load hubs.</div>';
+    }
+  } catch(err) {
+    setStatus('disconnected', 'Connection failed');
+    document.getElementById('hubTableWrap').innerHTML = '<div class="empty-msg">Connection error: ' + escHtml(err.message) + '</div>';
+  }
+}
+
+async function addHub() {
+  const locationId = document.getElementById('locationId').value.trim();
+  const name = document.getElementById('hubName').value.trim();
+  const street = document.getElementById('hubStreet').value.trim();
+  const city = document.getElementById('hubCity').value.trim();
+  const state = document.getElementById('hubState').value.trim();
+  const zip = document.getElementById('hubZip').value.trim();
+  const notes = document.getElementById('hubNotes').value.trim();
+
+  if (!locationId) { showToast('Location ID is required', 'error'); return; }
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!street) { showToast('Street address is required', 'error'); return; }
+
+  const address = street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '');
+
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true; btn.textContent = 'Adding...';
+
+  try {
+    const json = await jsonpRequest(scriptUrl, {
+      action: 'addhub',
+      locationid: locationId,
+      name: name,
+      address: address,
+      notes: notes
+    });
+    if (json.success) {
+      showToast('Hub "' + name + '" added successfully', 'success');
+      document.getElementById('locationId').value = '';
+      document.getElementById('hubName').value = '';
+      document.getElementById('hubStreet').value = '';
+      document.getElementById('hubCity').value = '';
+      document.getElementById('hubState').value = '';
+      document.getElementById('hubZip').value = '';
+      document.getElementById('hubNotes').value = '';
+      loadHubs();
+    } else {
+      showToast(json.error || 'Failed to add hub', 'error');
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Add Hub';
+}
+
+loadHubs();
+</script>
+</body>
+</html>

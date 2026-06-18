@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Open Exceptions</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .count-badge { font-size: 12px; color: #fff; background: #dc3545; padding: 4px 10px; border-radius: 12px; font-weight: 600; display: inline-block; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 8px; background: #f8f9fa; border-bottom: 2px solid #e0e0e0; font-size: 11px; text-transform: uppercase; color: #666; }
+  td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover { background: #f8f9fa; }
+  .resolve-btn { padding: 6px 14px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .resolve-btn:hover { background: #218838; }
+  .resolve-btn:disabled { background: #aaa; cursor: not-allowed; }
+  .empty-state { text-align: center; padding: 40px; color: #999; font-size: 14px; }
+  .confirm-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 500; }
+  .confirm-box { background: white; border-radius: 10px; padding: 28px; max-width: 400px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .confirm-box h3 { margin-bottom: 12px; color: #1a3a5c; }
+  .confirm-box p { font-size: 14px; color: #555; margin-bottom: 20px; }
+  .confirm-box .btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .confirm-box .btns button { padding: 10px 20px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .confirm-box .btn-cancel { background: #eee; color: #333; }
+  .confirm-box .btn-confirm { background: #28a745; color: white; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+  }
+  @media (min-width: 769px) { .hamburger { display: none; } }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html" class="active"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Open Exceptions</h1><div class="header-sub">Unresolved pallet issues</div></div>
+    <div class="header-right">
+      <span class="status-dot disconnected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Not connected</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Open Exceptions</h2>
+      <span class="count-badge" id="countBadge">0 open</span>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Pallet ID</th><th>Timestamp</th><th>Type</th><th>Note</th><th>Reported By</th><th>Action</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="emptyState" style="display:none;">🎉 No open exceptions — all clear!</div>
+    </div>
+  </div>
+</div>
+<div id="confirmModal" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box">
+    <h3>Resolve Exception</h3>
+    <p id="confirmText">Are you sure you want to resolve this exception?</p>
+    <div class="btns">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmResolve()">Resolve</button>
+    </div>
+  </div>
+</div>
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:400;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '', _jsonpCounter = 0;
+let allExceptions = []; // full list from server
+let openExceptions = []; // filtered open ones with original indices
+let pendingResolveIndex = null; // original row index to resolve
+
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+
+function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
+
+function escHtml(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+function fmtDate(str) {
+  if (!str) return '—';
+  const s = str.toString().trim();
+  if (!s) return '—';
+  const m = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if (m) {
+    const month = m[1], day = m[2], hr = parseInt(m[4]), min = m[5];
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return month + '/' + day + '/' + m[3] + ', ' + h12 + ':' + min + ' ' + ampm;
+  }
+  return s;
+}
+
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function setStatus(state, label) {
+  document.getElementById('statusDot').className = 'status-dot ' + state;
+  document.getElementById('statusLabel').textContent = label;
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 2500);
+}
+
+function renderTable() {
+  document.getElementById('countBadge').textContent = openExceptions.length + ' open';
+
+  if (openExceptions.length === 0) {
+    document.getElementById('tableBody').innerHTML = '';
+    document.getElementById('emptyState').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  let html = '';
+  openExceptions.forEach(item => {
+    const ex = item.data;
+    html += `<tr>
+      <td><strong>${escHtml(ex['Pallet ID'] || '')}</strong></td>
+      <td>${fmtDate(ex['Timestamp'] || '')}</td>
+      <td>${escHtml(ex['Type'] || '')}</td>
+      <td>${escHtml(ex['Note'] || '')}</td>
+      <td>${escHtml(ex['Reported By'] || ex['User'] || '')}</td>
+      <td><button class="resolve-btn" onclick="promptResolve(${item.originalIndex}, '${escHtml(ex['Pallet ID'] || '')}')">Resolve</button></td>
+    </tr>`;
+  });
+  document.getElementById('tableBody').innerHTML = html;
+}
+
+function promptResolve(originalIndex, palletId) {
+  pendingResolveIndex = originalIndex;
+  document.getElementById('confirmText').textContent = 'Resolve exception for pallet ' + palletId + '?';
+  document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function closeConfirm() {
+  document.getElementById('confirmModal').style.display = 'none';
+  pendingResolveIndex = null;
+}
+
+async function confirmResolve() {
+  if (pendingResolveIndex === null) return;
+  const rowIndex = pendingResolveIndex;
+  closeConfirm();
+
+  if (!scriptUrl) { showToast('No URL configured — go to Settings', 'error'); return; }
+  setStatus('pending', 'Resolving...');
+
+  try {
+    const json = await jsonpRequest(scriptUrl, {
+      action: 'resolveexception',
+      row: rowIndex,
+      user: getUser()
+    });
+    if (json.success) {
+      setStatus('connected', 'Connected');
+      showToast('Exception resolved', 'success');
+      loadData(); // Refresh
+    } else {
+      setStatus('connected', 'Connected');
+      showToast(json.error || 'Failed to resolve', 'error');
+    }
+  } catch(err) {
+    setStatus('disconnected', 'Connection failed');
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function loadData() {
+  if (!scriptUrl) { setStatus('disconnected', 'No URL — go to Settings'); return; }
+  setStatus('pending', 'Loading...');
+  try {
+    const json = await jsonpRequest(scriptUrl, { action: 'readexceptions' });
+    if (json.success) {
+      setStatus('connected', 'Connected');
+      allExceptions = json.data || [];
+      // Filter open exceptions, storing original 0-based index
+      openExceptions = [];
+      allExceptions.forEach((ex, idx) => {
+        if ((ex['Status'] || '').toLowerCase() === 'open') {
+          openExceptions.push({ data: ex, originalIndex: idx });
+        }
+      });
+      renderTable();
+    } else {
+      setStatus('disconnected', 'Error');
+      showToast(json.error || 'Failed to load', 'error');
+    }
+  } catch(err) {
+    setStatus('disconnected', 'Connection failed');
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Packing Documents</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+</style>
+<style>
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .filter-bar { margin-bottom: 16px; }
+  .filter-bar input { width: 100%; max-width: 400px; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+  .filter-bar input:focus { border-color: #1a3a5c; box-shadow: 0 0 0 3px rgba(26,58,92,0.1); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
+  table td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  table tr:hover { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #d4edda; color: #155724; }
+  .badge-gray { background: #e9ecef; color: #6c757d; }
+  .btn { padding: 6px 14px; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-label { background: #17a2b8; color: white; }
+  .btn-bol { background: #1a3a5c; color: white; margin-left: 6px; }
+  .empty-state { color: #999; font-size: 13px; text-align: center; padding: 30px 0; }
+  .text-center { text-align: center; }
+</style>
+<style>
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 500; justify-content: center; align-items: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: white; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(26,58,92,0.3) transparent; }
+  .modal::-webkit-scrollbar { width: 6px; }
+  .modal::-webkit-scrollbar-track { background: transparent; }
+  .modal::-webkit-scrollbar-thumb { background: rgba(26,58,92,0.3); border-radius: 3px; }
+  .loading-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); z-index: 400; justify-content: center; align-items: center; }
+  .loading-overlay.show { display: flex; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #e9ecef; border-top-color: #1a3a5c; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+    table { font-size: 12px; }
+    .btn { padding: 5px 10px; font-size: 11px; }
+  }
+  @media (min-width: 769px) { .hamburger { display: none; } }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html" class="active"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Packing Documents</h1><div class="header-sub">Print labels and BOLs for closed pallets</div></div>
+    <div class="header-right">
+      <span class="status-dot connected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Ready</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Closed Pallets Awaiting Shipment</h2>
+      <div class="filter-bar">
+        <input type="text" id="filterInput" placeholder="Filter by Pallet ID, Origin, or Description..." autocomplete="off">
+      </div>
+      <div id="tableWrap"><div class="empty-state">Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Label Modal -->
+<div class="modal-overlay" id="labelModal" onclick="if(event.target===this)closeLabelModal()">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <div id="labelContent"></div>
+    <div style="padding:16px;text-align:center;border-top:1px solid #eee;">
+      <button class="btn btn-label" onclick="printLabel()" style="padding:10px 28px;font-size:14px;">🖨️ Print Label</button>
+      <button class="btn" onclick="closeLabelModal()" style="padding:10px 28px;font-size:14px;background:#e9ecef;color:#333;margin-left:10px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Leg Select Modal -->
+<div class="modal-overlay" id="legModal" onclick="if(event.target===this)closeLegModal()">
+  <div class="modal" style="width:500px;max-width:95vw;">
+    <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:18px 24px;border-radius:10px 10px 0 0;">
+      <h3 style="font-size:16px;margin-bottom:2px;">Select Leg</h3>
+      <div style="font-size:12px;opacity:0.8;">Choose which leg to generate BOL for</div>
+    </div>
+    <div id="legListContent" style="padding:16px;"></div>
+    <div style="padding:12px 16px;text-align:right;border-top:1px solid #eee;">
+      <button class="btn" onclick="closeLegModal()" style="padding:8px 20px;background:#e9ecef;color:#333;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOL Preview Modal -->
+<div class="modal-overlay" id="bolModal" onclick="if(event.target===this)closeBolModal()">
+  <div class="modal" style="width:700px;max-width:95vw;">
+    <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:18px 24px;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h3 style="font-size:16px;margin-bottom:2px;">Bill of Lading</h3>
+        <div id="bolSubtitle" style="font-size:12px;opacity:0.8;"></div>
+      </div>
+      <button onclick="closeBolModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+    <div id="bolContent" style="padding:20px;"></div>
+    <div style="padding:16px;text-align:center;border-top:1px solid #eee;">
+      <button class="btn btn-bol" onclick="printBol()" style="padding:10px 28px;font-size:14px;">🖨️ Print BOL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Next Stop Label Modal -->
+<div class="modal-overlay" id="nextStopModal" onclick="if(event.target===this)closeNextStopModal()">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <div id="nextStopContent"></div>
+    <div style="padding:16px;text-align:center;border-top:1px solid #eee;">
+      <button class="btn btn-label" onclick="printNextStop()" style="padding:10px 28px;font-size:14px;background:#fd7e14;">🖨️ Print Next Stop</button>
+      <button class="btn" onclick="closeNextStopModal()" style="padding:10px 28px;font-size:14px;background:#e9ecef;color:#333;margin-left:10px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:600;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '';
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+
+function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
+
+let _jsonpCounter = 0;
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 3000);
+}
+
+function setStatus(state, label) {
+  document.getElementById('statusDot').className = 'status-dot ' + state;
+  document.getElementById('statusLabel').textContent = label || '';
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
+function fmtDate(str) {
+  if (!str) return '—';
+  const s = str.toString().trim();
+  if (!s) return '—';
+  const m = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if (m) {
+    const month = m[1], day = m[2], hr = parseInt(m[4]), min = m[5];
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return month + '/' + day + '/' + m[3] + ', ' + h12 + ':' + min + ' ' + ampm;
+  }
+  return s;
+}
+
+// Data stores
+let pallets = [];
+let routes = [];
+let legs = [];
+let palletItems = [];
+let hubLocations = [];
+let currentLabelPallet = null;
+let currentBolHtml = '';
+
+// Load all data in parallel
+async function loadData() {
+  document.getElementById('loadingOverlay').classList.add('show');
+  setStatus('pending', 'Loading...');
+  try {
+    const [palletsJson, routesJson, legsJson, itemsJson, hubsJson] = await Promise.all([
+      jsonpRequest(scriptUrl, { action: 'read' }),
+      jsonpRequest(scriptUrl, { action: 'readroutes' }),
+      jsonpRequest(scriptUrl, { action: 'readlegs' }),
+      jsonpRequest(scriptUrl, { action: 'readpalletitems' }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' })
+    ]);
+    if (palletsJson.success) pallets = palletsJson.data || [];
+    if (routesJson.success) routes = routesJson.data || [];
+    if (legsJson.success) legs = legsJson.data || [];
+    if (itemsJson.success) palletItems = itemsJson.data || [];
+    let hubs = (hubsJson && hubsJson.success) ? hubsJson.data || [] : [];
+    hubLocations = hubs;
+    setStatus('connected', 'Ready');
+    renderTable();
+  } catch(err) {
+    setStatus('disconnected', 'Error');
+    showToast('Failed to load data: ' + err.message, 'error');
+    document.getElementById('tableWrap').innerHTML = '<div class="empty-state">Failed to load data</div>';
+  }
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+function getClosedPallets() {
+  return pallets.filter(p => (p['Status']||'').trim() === 'Closed');
+}
+
+function isRouted(palletId) {
+  return routes.some(r => (r['Pallet ID']||'').trim() === palletId.trim());
+}
+
+function getItemCount(palletId) {
+  return palletItems.filter(i => (i['Pallet ID']||'').trim() === palletId.trim() && (i['Status']||'').trim() === 'On Pallet').length;
+}
+
+function getPalletLegs(palletId) {
+  return legs.filter(l => (l['Pallet ID']||'').trim() === palletId.trim());
+}
+
+function getPalletItems(palletId) {
+  return palletItems.filter(i => (i['Pallet ID']||'').trim() === palletId.trim() && (i['Status']||'').trim() === 'On Pallet');
+}
+
+function renderTable() {
+  const closed = getClosedPallets();
+  const filter = (document.getElementById('filterInput').value || '').toLowerCase().trim();
+  const filtered = filter ? closed.filter(p => {
+    const id = (p['Pallet ID']||'').toLowerCase();
+    const origin = (p['Origin']||'').toLowerCase();
+    const desc = (p['Description']||'').toLowerCase();
+    return id.includes(filter) || origin.includes(filter) || desc.includes(filter);
+  }) : closed;
+
+  if (filtered.length === 0) {
+    document.getElementById('tableWrap').innerHTML = '<div class="empty-state">No closed pallets found</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Pallet ID</th><th>Origin</th><th>Description</th><th class="text-center">Items</th><th>Current Location</th><th>Close Date</th><th class="text-center">Routed</th><th>Actions</th></tr></thead><tbody>';
+  filtered.forEach(p => {
+    const pid = (p['Pallet ID']||'').trim();
+    const routed = isRouted(pid);
+    const itemCount = getItemCount(pid);
+    const currentLoc = p['Current Location'] || p['Origin'] || '—';
+    html += '<tr>';
+    html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(pid) + '</strong></td>';
+    html += '<td>' + escHtml(p['Origin']||'—') + '</td>';
+    html += '<td>' + escHtml(p['Description']||'—') + '</td>';
+    html += '<td class="text-center">' + itemCount + '</td>';
+    html += '<td>' + escHtml(currentLoc) + '</td>';
+    html += '<td>' + fmtDate(p['Close Date']||'') + '</td>';
+    html += '<td class="text-center"><span class="badge ' + (routed ? 'badge-green' : 'badge-gray') + '">' + (routed ? 'Yes' : 'No') + '</span></td>';
+    html += '<td><button class="btn btn-label" onclick="openLabelModal(\'' + escHtml(pid) + '\')">Label</button>';
+    html += '<button class="btn btn-bol" onclick="openBolFlow(\'' + escHtml(pid) + '\')">BOL</button>';
+    html += '<button class="btn" style="background:#fd7e14;color:white;margin-left:6px;" onclick="openNextStopLabel(\'' + escHtml(pid) + '\')">Next Stop</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('tableWrap').innerHTML = html;
+}
+
+document.getElementById('filterInput').addEventListener('input', renderTable);
+
+function getHubAddress(name) {
+  if (!name) return '';
+  const n = (name||'').trim().toLowerCase();
+  // Try exact match first
+  let hub = hubLocations.find(h => (h['Name']||'').trim().toLowerCase() === n);
+  // Try partial match (hub name contains the location name or vice versa)
+  if (!hub) hub = hubLocations.find(h => (h['Name']||'').toLowerCase().includes(n) || n.includes((h['Name']||'').toLowerCase()));
+  return hub ? (hub['Address']||'') : '';
+}
+
+// ===== LABEL MODAL =====
+function openLabelModal(palletId) {
+  const p = pallets.find(x => (x['Pallet ID']||'').trim() === palletId);
+  if (!p) return;
+  currentLabelPallet = p;
+  const itemCount = getItemCount(palletId);
+  const now = new Date().toLocaleString('en-US', { timeZone:'America/New_York' });
+
+  const html = `
+    <div id="labelPreview" style="width:384px;height:576px;margin:20px auto;border:2px solid #333;border-radius:4px;background:white;display:flex;flex-direction:column;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden;">
+      <div style="text-align:center;padding:10px 0;border-bottom:2px solid black;">
+        <img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" style="height:36px;filter:invert(1);">
+      </div>
+      <div style="text-align:center;padding:8px 0;border-bottom:1px solid #ccc;">
+        <div style="font-size:16px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;">FRONTIER SHIPPING</div>
+      </div>
+      <div style="text-align:center;padding:16px 0;border-bottom:1px solid #ccc;">
+        <div style="font-size:36px;font-weight:bold;font-family:Consolas,'Courier New',monospace;">${escHtml(palletId)}</div>
+      </div>
+      <div style="text-align:center;padding:12px 0;border-bottom:1px solid #ccc;">
+        <svg id="labelBarcode"></svg>
+      </div>
+      <div style="text-align:center;padding:8px 0;border-bottom:1px solid #ccc;">
+        <div style="display:inline-block;border:2px solid #28a745;color:#28a745;padding:4px 16px;border-radius:4px;font-weight:bold;font-size:13px;">PALLET CLOSED</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;text-align:center;">
+        <div style="padding:12px 14px;border-bottom:1px solid #eee;border-right:1px solid #eee;text-align:center;">
+          <div style="font-size:10px;color:#555;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Origin</div>
+          <div style="font-size:14px;font-weight:700;margin-top:4px;">${escHtml(p['Origin']||'—')}</div>
+          <div style="font-size:11px;color:#444;margin-top:2px;">${escHtml(getHubAddress(p['Origin']))}</div>
+        </div>
+        <div style="padding:12px 14px;border-bottom:1px solid #eee;text-align:center;">
+          <div style="font-size:10px;color:#555;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Line Items</div>
+          <div style="font-size:16px;font-weight:700;margin-top:4px;">${itemCount}</div>
+        </div>
+        <div style="padding:12px 14px;border-right:1px solid #eee;text-align:center;">
+          <div style="font-size:10px;color:#555;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Opened</div>
+          <div style="font-size:14px;font-weight:700;margin-top:4px;">${fmtDate(p['Open Date']||'')}</div>
+        </div>
+        <div style="padding:12px 14px;text-align:center;">
+          <div style="font-size:10px;color:#555;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Closed</div>
+          <div style="font-size:14px;font-weight:700;margin-top:4px;">${fmtDate(p['Close Date']||'')}</div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:6px;font-size:12px;color:#555;border-top:1px solid #eee;">Printed: ${now}</div>
+    </div>
+  `;
+  document.getElementById('labelContent').innerHTML = html;
+  document.getElementById('labelModal').classList.add('show');
+
+  setTimeout(() => {
+    try {
+      JsBarcode('#labelBarcode', palletId, { format: 'CODE128', width: 2, height: 50, displayValue: false, margin: 0 });
+    } catch(e) {}
+  }, 50);
+}
+
+function closeLabelModal() {
+  document.getElementById('labelModal').classList.remove('show');
+  currentLabelPallet = null;
+}
+
+function printLabel() {
+  const preview = document.getElementById('labelPreview');
+  if (!preview) return;
+  const win = window.open('', '_blank', 'width=420,height=650');
+  win.document.write('<html><head><title>Pallet Label</title><style>@page{size:4in 6in;margin:0;}body{margin:0;padding:0;}</style></head><body>');
+  win.document.write(preview.outerHTML);
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(() => { win.print(); }, 300);
+}
+
+// ===== BOL FLOW =====
+function openBolFlow(palletId) {
+  const pLegs = getPalletLegs(palletId);
+  if (!isRouted(palletId)) {
+    showToast('Route not assigned yet', 'error');
+    return;
+  }
+  if (pLegs.length === 0) {
+    showToast('Route not assigned yet', 'error');
+    return;
+  }
+  if (pLegs.length === 1) {
+    openBolPreview(palletId, pLegs[0], 1, 1);
+  } else {
+    openLegSelector(palletId, pLegs);
+  }
+}
+
+function openLegSelector(palletId, pLegs) {
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  html += '<thead><tr><th style="padding:10px 12px;text-align:left;border-bottom:2px solid #dee2e6;">Leg #</th><th style="padding:10px 12px;text-align:left;border-bottom:2px solid #dee2e6;">Route</th><th style="padding:10px 12px;text-align:left;border-bottom:2px solid #dee2e6;">Type</th><th style="padding:10px 12px;border-bottom:2px solid #dee2e6;"></th></tr></thead><tbody>';
+  pLegs.forEach((leg, idx) => {
+    const legNum = leg['Leg #'] || (idx + 1);
+    const from = leg['From Location'] || '—';
+    const to = leg['To Location'] || '—';
+    const type = leg['Leg Type'] || '—';
+    html += '<tr style="border-bottom:1px solid #eee;">';
+    html += '<td style="padding:10px 12px;font-weight:600;">' + escHtml(String(legNum)) + '</td>';
+    html += '<td style="padding:10px 12px;">' + escHtml(from) + ' → ' + escHtml(to) + '</td>';
+    html += '<td style="padding:10px 12px;">' + escHtml(type) + '</td>';
+    html += '<td style="padding:10px 12px;text-align:right;"><button class="btn btn-bol" onclick="selectLeg(\'' + escHtml(palletId) + '\',' + idx + ')">Select</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('legListContent').innerHTML = html;
+  document.getElementById('legModal').classList.add('show');
+}
+
+function selectLeg(palletId, legIdx) {
+  const pLegs = getPalletLegs(palletId);
+  closeLegModal();
+  openBolPreview(palletId, pLegs[legIdx], legIdx + 1, pLegs.length);
+}
+
+function closeLegModal() {
+  document.getElementById('legModal').classList.remove('show');
+}
+
+// ===== BOL PREVIEW =====
+function openBolPreview(palletId, leg, legNum, totalLegs) {
+  const p = pallets.find(x => (x['Pallet ID']||'').trim() === palletId);
+  if (!p) return;
+  const items = getPalletItems(palletId);
+  const now = new Date().toLocaleString('en-US', { timeZone:'America/New_York' });
+  const fromLoc = leg['From Location'] || '—';
+  const toLoc = leg['To Location'] || '—';
+  const legType = leg['Leg Type'] || '—';
+  const fromAddr = getHubAddress(fromLoc);
+  const toAddr = getHubAddress(toLoc);
+  const trackingNum = 'TRK-' + palletId.replace('PLB-', 'PLB') + '-L' + legNum;
+
+  document.getElementById('bolSubtitle').textContent = 'Leg ' + legNum + ' of ' + totalLegs;
+
+  let itemsHtml = '';
+  items.forEach((item, idx) => {
+    itemsHtml += '<tr>';
+    itemsHtml += '<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">' + (idx+1) + '</td>';
+    itemsHtml += '<td style="padding:6px 10px;border-bottom:1px solid #eee;font-family:Consolas,monospace;font-size:12px;">' + escHtml(item['Item Code']||'—') + '</td>';
+    itemsHtml += '<td style="padding:6px 10px;border-bottom:1px solid #eee;">' + escHtml(item['Item Description']||'—') + '</td>';
+    itemsHtml += '<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">' + escHtml(item['Item Quantity']||'1') + '</td>';
+    itemsHtml += '<td style="padding:6px 10px;border-bottom:1px solid #eee;font-family:Consolas,monospace;font-size:12px;">' + escHtml(item['Item Serial Number']||'—') + '</td>';
+    itemsHtml += '</tr>';
+  });
+
+  const bolHtml = `
+    <div id="bolPreviewContent" style="background:white;padding:30px;font-family:'Segoe UI',Arial,sans-serif;max-width:650px;margin:0 auto;">
+      <div style="text-align:center;padding:10px 0;border-bottom:2px solid black;margin-bottom:16px;">
+        <img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" style="height:36px;filter:invert(1);">
+      </div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:18px;font-weight:bold;letter-spacing:1px;">FRONTIER SHIPPING — BILL OF LADING</div>
+      </div>
+
+      <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin-bottom:10px;text-transform:uppercase;">Shipment Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Pallet ID</div>
+            <div style="font-size:14px;font-weight:700;font-family:Consolas,monospace;margin-top:2px;">${escHtml(palletId)}</div>
+            <svg id="bolBarcode" style="margin-top:4px;"></svg>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Tracking #</div>
+            <div style="font-size:14px;font-weight:700;font-family:Consolas,monospace;margin-top:2px;">${escHtml(trackingNum)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Leg</div>
+            <div style="font-size:14px;font-weight:600;margin-top:2px;">${legNum} of ${totalLegs}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">From</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(fromLoc)}</div>
+            ${fromAddr ? '<div style="font-size:11px;color:#444;margin-top:2px;">' + escHtml(fromAddr) + '</div>' : ''}
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">To</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(toLoc)}</div>
+            ${toAddr ? '<div style="font-size:11px;color:#444;margin-top:2px;">' + escHtml(toAddr) + '</div>' : ''}
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Leg Type</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(legType)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Date Printed</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${now}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin-bottom:10px;text-transform:uppercase;">Pallet Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Origin</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(p['Origin']||'—')}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Description</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(p['Description']||'—')}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Open Date</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${fmtDate(p['Open Date']||'')}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;">Close Date</div>
+            <div style="font-size:13px;font-weight:600;margin-top:2px;">${fmtDate(p['Close Date']||'')}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin-bottom:10px;text-transform:uppercase;">Contents</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:#f0f2f5;">
+              <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #dee2e6;width:40px;">#</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #dee2e6;">Item Code</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #dee2e6;">Description</th>
+              <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #dee2e6;">Qty</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #dee2e6;">Serial #</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHtml}</tbody>
+          <tfoot>
+            <tr style="background:#f8f9fa;font-weight:600;">
+              <td colspan="3" style="padding:8px 10px;text-align:right;">Total Items:</td>
+              <td style="padding:8px 10px;text-align:center;">${items.length}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style="margin-top:30px;padding-top:20px;border-top:2px solid #333;">
+        <div style="margin-bottom:20px;">
+          <span style="font-size:13px;">Driver Signature: ___________________________&nbsp;&nbsp;Date: __________</span>
+        </div>
+        <div>
+          <span style="font-size:13px;">Receiver Signature: ________________________&nbsp;&nbsp;Date: __________</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('bolContent').innerHTML = bolHtml;
+  currentBolHtml = bolHtml;
+  document.getElementById('bolModal').classList.add('show');
+
+  setTimeout(() => {
+    try {
+      JsBarcode('#bolBarcode', palletId, { format: 'CODE128', width: 1.5, height: 30, displayValue: false, margin: 0 });
+    } catch(e) {}
+  }, 50);
+}
+
+function closeBolModal() {
+  document.getElementById('bolModal').classList.remove('show');
+  currentBolHtml = '';
+}
+
+function printBol() {
+  const content = document.getElementById('bolPreviewContent');
+  if (!content) return;
+  const win = window.open('', '_blank', 'width=850,height=1100');
+  win.document.write('<!DOCTYPE html><html><head><title>Bill of Lading</title>');
+  win.document.write('<style>@page{size:8.5in 11in;margin:0.5in;}body{margin:0;padding:20px;font-family:"Segoe UI",Arial,sans-serif;}table{width:100%;border-collapse:collapse;}svg{max-width:150px;}</style>');
+  win.document.write('</head><body>');
+  win.document.write(content.outerHTML);
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(() => { win.print(); }, 300);
+}
+
+// ===== NEXT STOP LABEL =====
+function openNextStopLabel(palletId) {
+  const pLegs = getPalletLegs(palletId);
+  if (!isRouted(palletId) || pLegs.length === 0) {
+    showToast('Route not assigned yet', 'error');
+    return;
+  }
+
+  // Find the next pending leg (first one not yet complete)
+  const nextLeg = pLegs.find(l => (l['Status']||'').trim() === 'Pending' || (l['Status']||'').trim() === 'In Transit');
+  if (!nextLeg) {
+    showToast('All legs complete — no next stop', 'error');
+    return;
+  }
+
+  const toLoc = nextLeg['To Location'] || '—';
+  const fromLoc = nextLeg['From Location'] || '—';
+  const legType = nextLeg['Leg Type'] || '';
+  const legNum = nextLeg['Leg #'] || '1';
+  const totalLegs = pLegs.length;
+  const toAddress = getHubAddress(toLoc);
+  const fromAddress = getHubAddress(fromLoc);
+  const legTypeLabel = legType === 'Final' ? 'FINAL DELIVERY' : 'TRANSFER TO HUB';
+  const legTypeColor = legType === 'Final' ? '#e91e63' : '#fd7e14';
+  const trackingNum = 'TRK-' + palletId.replace('PLB-', 'PLB') + '-L' + legNum;
+  const now = new Date().toLocaleString('en-US', { timeZone:'America/New_York' });
+
+  const html = `
+    <div id="nextStopPreview" style="width:384px;height:576px;margin:20px auto;border:3px solid ${legTypeColor};border-radius:8px;background:white;display:flex;flex-direction:column;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden;">
+      <div style="background:${legTypeColor};color:white;padding:14px 16px;text-align:center;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;">Next Stop</div>
+        <div style="font-size:16px;font-weight:700;margin-top:4px;">${escHtml(legTypeLabel)}</div>
+      </div>
+      <div style="padding:20px;flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:10px;color:#888;text-transform:uppercase;font-weight:600;">Pallet</div>
+            <div style="font-size:24px;font-weight:700;font-family:Consolas,monospace;">${escHtml(palletId)}</div>
+            <div style="font-size:11px;font-family:Consolas,monospace;color:#555;margin-top:2px;">${escHtml(trackingNum)}</div>
+          </div>
+          <div style="background:#1a3a5c;color:white;padding:8px 16px;border-radius:8px;text-align:center;">
+            <div style="font-size:10px;text-transform:uppercase;opacity:0.8;">Leg</div>
+            <div style="font-size:20px;font-weight:700;">${escHtml(String(legNum))} of ${totalLegs}</div>
+          </div>
+        </div>
+        <div style="background:#f0f8f0;border:2px solid ${legTypeColor};border-radius:8px;padding:20px;">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;font-weight:600;margin-bottom:6px;letter-spacing:0.5px;">Deliver To</div>
+          <div style="font-size:24px;font-weight:700;color:#1a3a5c;">${escHtml(toLoc)}</div>
+          <div style="font-size:16px;color:#333;margin-top:8px;line-height:1.5;">${escHtml(toAddress || toLoc)}</div>
+        </div>
+        <div style="background:#f8f9fa;border:2px solid #dee2e6;border-radius:8px;padding:20px;">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;font-weight:600;margin-bottom:6px;letter-spacing:0.5px;">Ship From</div>
+          <div style="font-size:20px;font-weight:700;color:#1a3a5c;">${escHtml(fromLoc)}</div>
+          <div style="font-size:16px;color:#333;margin-top:8px;line-height:1.5;">${escHtml(fromAddress || fromLoc)}</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #eee;padding:8px;text-align:center;font-size:11px;color:#555;">Printed: ${now}</div>
+    </div>
+  `;
+
+  document.getElementById('nextStopContent').innerHTML = html;
+  document.getElementById('nextStopModal').classList.add('show');
+}
+
+function closeNextStopModal() {
+  document.getElementById('nextStopModal').classList.remove('show');
+}
+
+function printNextStop() {
+  const preview = document.getElementById('nextStopPreview');
+  if (!preview) return;
+  const win = window.open('', '_blank', 'width=420,height=650');
+  win.document.write('<html><head><title>Next Stop Label</title><style>@page{size:4in 6in;margin:0;}body{margin:0;padding:0;}</style></head><body>');
+  win.document.write(preview.outerHTML);
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(() => { win.print(); }, 300);
+}
+
+// Init
+if (scriptUrl) {
+  loadData();
+} else {
+  document.getElementById('tableWrap').innerHTML = '<div class="empty-state">No script URL configured — go to Settings</div>';
+}
+</script>
+</body>
+</html>

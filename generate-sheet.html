@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Generate Frontier Shipping Google Sheet</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body style="font-family:'Segoe UI',sans-serif;padding:40px;background:#f0f2f5;">
+<div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;padding:40px;box-shadow:0 2px 8px rgba(0,0,0,0.1);text-align:center;">
+  <h1 style="color:#1a3a5c;margin-bottom:10px;">Frontier Shipping</h1>
+  <p style="color:#666;margin-bottom:30px;">Click the button below to generate and download the Google Sheet template with all 7 tabs pre-configured.</p>
+  <button onclick="generateExcel()" style="padding:14px 40px;background:#1a3a5c;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Download Excel Template</button>
+  <p style="color:#888;font-size:12px;margin-top:20px;">After downloading, go to Google Sheets → File → Import → Upload this file</p>
+</div>
+<script>
+function generateExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // Tab 1: Pallets
+  const pallets = [
+    ['Pallet ID', 'Origin', 'Description', 'Status', 'Opened By', 'Open Date', 'Closed By', 'Close Date', 'Current Location']
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(pallets);
+  ws1['!cols'] = [{wch:14},{wch:20},{wch:30},{wch:14},{wch:16},{wch:20},{wch:16},{wch:20},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Pallets');
+
+  // Tab 2: Routes
+  const routes = [
+    ['Pallet ID', 'Final Destination', 'Created By', 'Created Date']
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(routes);
+  ws2['!cols'] = [{wch:14},{wch:40},{wch:16},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Routes');
+
+  // Tab 3: Route Legs
+  const routeLegs = [
+    ['Pallet ID', 'Leg #', 'From Location', 'To Location', 'Leg Type', 'Status', 'Pickup Scan By', 'Pickup Scan Date', 'Dropoff Scan By', 'Dropoff Scan Date', 'Receipt Scan By', 'Receipt Scan Date']
+  ];
+  const ws3 = XLSX.utils.aoa_to_sheet(routeLegs);
+  ws3['!cols'] = [{wch:14},{wch:6},{wch:20},{wch:20},{wch:12},{wch:14},{wch:16},{wch:20},{wch:16},{wch:20},{wch:16},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Route Legs');
+
+  // Tab 4: Transaction History
+  const history = [
+    ['Pallet ID', 'Timestamp', 'Action', 'Leg #', 'Location', 'User']
+  ];
+  const ws4 = XLSX.utils.aoa_to_sheet(history);
+  ws4['!cols'] = [{wch:14},{wch:20},{wch:20},{wch:6},{wch:20},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws4, 'Transaction History');
+
+  // Tab 5: Hub Locations
+  const hubs = [
+    ['Location ID', 'Name', 'Address', 'Notes']
+  ];
+  const ws5 = XLSX.utils.aoa_to_sheet(hubs);
+  ws5['!cols'] = [{wch:12},{wch:24},{wch:40},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, ws5, 'Hub Locations');
+
+  // Tab 6: Exceptions
+  const exceptions = [
+    ['Pallet ID', 'Timestamp', 'Type', 'Note', 'Reported By', 'Status', 'Resolved By', 'Resolution Date']
+  ];
+  const ws6 = XLSX.utils.aoa_to_sheet(exceptions);
+  ws6['!cols'] = [{wch:14},{wch:20},{wch:12},{wch:40},{wch:16},{wch:12},{wch:16},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws6, 'Exceptions');
+
+  // Tab 7: Users
+  const users = [
+    ['Username', 'Password', 'Email', 'Role']
+  ];
+  const ws7 = XLSX.utils.aoa_to_sheet(users);
+  ws7['!cols'] = [{wch:16},{wch:16},{wch:30},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws7, 'Users');
+
+  // Download
+  XLSX.writeFile(wb, 'Frontier_Shipping_Template.xlsx');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Routing</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .filter-bar input { flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+  .filter-bar .count { font-size: 12px; color: #888; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
+  table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+  table tr:hover { background: #f8f9fa; cursor: pointer; }
+  .empty-msg { text-align: center; color: #888; padding: 30px; font-size: 14px; }
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 500; justify-content: center; align-items: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: white; border-radius: 10px; padding: 28px; max-width: 540px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+  .modal h3 { color: #1a3a5c; margin-bottom: 6px; font-size: 18px; }
+  .modal .modal-sub { color: #555; font-size: 13px; margin-bottom: 20px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
+  .route-builder { margin-bottom: 20px; }
+  .route-builder h4 { font-size: 13px; color: #1a3a5c; margin-bottom: 12px; font-weight: 600; }
+  .route-step { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 2px; border-radius: 6px; font-size: 13px; position: relative; }
+  .route-step.fixed { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; font-weight: 600; }
+  .route-step.dest { background: #e3f2fd; border: 1px solid #bbdefb; color: #1565c0; font-weight: 600; }
+  .route-step.hub { background: #fff3e0; border: 1px solid #ffe0b2; }
+  .route-step .step-icon { font-size: 16px; width: 20px; text-align: center; }
+  .route-step .step-label { flex: 1; }
+  .route-step select { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+  .route-step .remove-btn { background: none; border: none; color: #dc3545; font-size: 18px; cursor: pointer; font-weight: bold; padding: 0 4px; }
+  .route-step .remove-btn:hover { color: #a71d2a; }
+  .route-connector { text-align: center; color: #aaa; font-size: 14px; padding: 2px 0; }
+  .add-hub-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: #f8f9fa; border: 1px dashed #aaa; border-radius: 6px; font-size: 12px; color: #555; cursor: pointer; margin: 8px 0; transition: all 0.15s; }
+  .add-hub-btn:hover { background: #e9ecef; border-color: #1a3a5c; color: #1a3a5c; }
+  .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
+  .modal-actions button { padding: 10px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .modal-actions .assign-btn { background: #1a3a5c; color: white; }
+  .modal-actions .assign-btn:hover { background: #15304d; }
+  .modal-actions .assign-btn:disabled { background: #aaa; cursor: not-allowed; }
+  .modal-actions .cancel-btn { background: #e9ecef; color: #333; }
+  .modal-actions .cancel-btn:hover { background: #dee2e6; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+  }
+  @media (min-width: 769px) { .hamburger { display: none; } }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html" class="active"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Routing</h1><div class="header-sub">Assign routes to closed pallets</div></div>
+    <div class="header-right">
+      <span class="status-dot disconnected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Not connected</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Pallets Awaiting Route</h2>
+      <div class="filter-bar">
+        <input type="text" id="filterInput" placeholder="Filter by Pallet ID..." oninput="filterTable()">
+        <span class="count" id="countLabel">0 pallets</span>
+      </div>
+      <div id="palletTableWrap">
+        <div class="empty-msg" id="loadingMsg">Loading pallets...</div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Routing Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>Assign Route</h3>
+    <div class="modal-sub" id="modalSubtitle"></div>
+    <div class="route-builder">
+      <h4>Route Builder</h4>
+      <div id="routePreview"></div>
+    </div>
+    <div class="form-group" style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+      <label>Final Destination</label>
+      <input type="text" id="destName" placeholder="Name/Company/Site" style="margin-bottom:8px;" oninput="renderRoutePreview()">
+      <input type="text" id="destStreet" placeholder="Street Address" style="margin-bottom:8px;" oninput="renderRoutePreview()">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <input type="text" id="destCity" placeholder="City" oninput="renderRoutePreview()">
+        <input type="text" id="destState" placeholder="State" oninput="renderRoutePreview()">
+      </div>
+      <input type="text" id="destZip" placeholder="ZIP Code" style="max-width:140px;" oninput="renderRoutePreview()">
+    </div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+      <button class="assign-btn" id="assignBtn" onclick="assignRoute()">Assign Route</button>
+    </div>
+  </div>
+</div>
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:400;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '', _jsonpCounter = 0;
+let unroutedPallets = [];
+let hubLocations = [];
+let selectedPallet = null;
+let hubStops = [];
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+
+function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
+
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function setStatus(state, label) {
+  document.getElementById('statusDot').className = 'status-dot ' + state;
+  document.getElementById('statusLabel').textContent = label;
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 2500);
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function renderTable(pallets) {
+  const wrap = document.getElementById('palletTableWrap');
+  document.getElementById('countLabel').textContent = pallets.length + ' pallet' + (pallets.length !== 1 ? 's' : '');
+  if (!pallets || pallets.length === 0) {
+    wrap.innerHTML = '<div class="empty-msg">No closed pallets awaiting route assignment.</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Pallet ID</th><th>Origin</th><th>Description</th><th>Close Date</th></tr></thead><tbody>';
+  pallets.forEach(p => {
+    html += '<tr onclick="openRouteModal(\'' + escHtml(p['Pallet ID']||'').replace(/'/g, "\\'") + '\')">';
+    html += '<td><strong>' + escHtml(p['Pallet ID']||'') + '</strong></td>';
+    html += '<td>' + escHtml(p['Origin']||'') + '</td>';
+    html += '<td>' + escHtml(p['Description']||'') + '</td>';
+    html += '<td>' + escHtml(p['Close Date']||'') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function filterTable() {
+  const q = document.getElementById('filterInput').value.trim().toLowerCase();
+  if (!q) { renderTable(unroutedPallets); return; }
+  const filtered = unroutedPallets.filter(p => (p['Pallet ID']||'').toLowerCase().includes(q));
+  renderTable(filtered);
+}
+
+function openRouteModal(palletId) {
+  selectedPallet = unroutedPallets.find(p => p['Pallet ID'] === palletId);
+  if (!selectedPallet) return;
+  hubStops = [];
+  document.getElementById('destName').value = '';
+  document.getElementById('destStreet').value = '';
+  document.getElementById('destCity').value = '';
+  document.getElementById('destState').value = '';
+  document.getElementById('destZip').value = '';
+  document.getElementById('modalSubtitle').textContent = 'Pallet: ' + selectedPallet['Pallet ID'] + '  •  Origin: ' + (selectedPallet['Origin']||'N/A');
+  renderRoutePreview();
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function getFinalDest() {
+  const name = document.getElementById('destName').value.trim();
+  const street = document.getElementById('destStreet').value.trim();
+  const city = document.getElementById('destCity').value.trim();
+  const state = document.getElementById('destState').value.trim();
+  const zip = document.getElementById('destZip').value.trim();
+  const parts = [name, street, [city, state].filter(s=>s).join(', '), zip].filter(s=>s);
+  return parts.join(', ');
+}
+
+function closeModal() {
+  selectedPallet = null;
+  hubStops = [];
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function addHubStop() {
+  hubStops.push('');
+  renderRoutePreview();
+}
+
+function removeHubStop(index) {
+  hubStops.splice(index, 1);
+  renderRoutePreview();
+}
+
+function updateHubStop(index, value) {
+  hubStops[index] = value;
+  renderRoutePreview();
+}
+
+function renderRoutePreview() {
+  const container = document.getElementById('routePreview');
+  const origin = selectedPallet ? (selectedPallet['Origin']||'N/A') : 'N/A';
+  const finalDest = getFinalDest() || '(enter destination)';
+  let html = '';
+  // Origin (fixed)
+  html += '<div class="route-step fixed"><span class="step-icon">📍</span><span class="step-label">' + escHtml(origin) + '</span><span style="font-size:11px;opacity:0.6;">ORIGIN</span></div>';
+  html += '<div class="route-connector">↓</div>';
+  // Hub stops
+  hubStops.forEach((hub, i) => {
+    html += '<div class="route-step hub"><span class="step-icon">🏭</span>';
+    html += '<select onchange="updateHubStop(' + i + ', this.value)">';
+    html += '<option value="">-- Select Hub --</option>';
+    hubLocations.forEach(h => {
+      const name = h['Hub Name'] || h['Name'] || '';
+      html += '<option value="' + escHtml(name) + '"' + (hub === name ? ' selected' : '') + '>' + escHtml(name) + '</option>';
+    });
+    html += '</select>';
+    html += '<button class="remove-btn" onclick="removeHubStop(' + i + ')" title="Remove stop">✕</button></div>';
+    html += '<div class="route-connector">↓</div>';
+  });
+  // Add Hub Stop button before destination
+  html += '<button type="button" class="add-hub-btn" onclick="addHubStop()" style="margin:8px 0;">➕ Add Hub Stop</button>';
+  html += '<div class="route-connector">↓</div>';
+  // Final destination
+  html += '<div class="route-step dest"><span class="step-icon">🏁</span><span class="step-label">' + escHtml(finalDest) + '</span><span style="font-size:11px;opacity:0.6;">DESTINATION</span></div>';
+  container.innerHTML = html;
+}
+
+function buildLegs() {
+  const origin = selectedPallet['Origin'] || '';
+  const finalDest = getFinalDest();
+  const validHubs = hubStops.filter(h => h && h.trim());
+  const legs = [];
+  if (validHubs.length === 0) {
+    // Direct: origin → final destination
+    legs.push({ from: origin, to: finalDest, type: 'Final' });
+  } else {
+    // First leg: origin → first hub
+    legs.push({ from: origin, to: validHubs[0], type: 'Transfer' });
+    // Middle legs
+    for (let i = 0; i < validHubs.length - 1; i++) {
+      legs.push({ from: validHubs[i], to: validHubs[i+1], type: 'Transfer' });
+    }
+    // Last leg: last hub → final destination
+    legs.push({ from: validHubs[validHubs.length - 1], to: finalDest, type: 'Final' });
+  }
+  return legs;
+}
+
+async function assignRoute() {
+  if (!selectedPallet) return;
+  const finalDest = getFinalDest();
+  if (!finalDest) { showToast('Please enter a final destination', 'error'); return; }
+  const validHubs = hubStops.filter(h => h && h.trim());
+  // Validate all hub stops are selected
+  if (hubStops.length > 0 && validHubs.length !== hubStops.length) {
+    showToast('Please select all hub stops or remove empty ones', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('assignBtn');
+  btn.disabled = true; btn.textContent = 'Assigning...';
+
+  const legs = buildLegs();
+  try {
+    const json = await jsonpRequest(scriptUrl, {
+      action: 'assignroute',
+      palletid: selectedPallet['Pallet ID'],
+      finaldest: finalDest,
+      legs: JSON.stringify(legs),
+      user: getUser()
+    });
+    if (json.success) {
+      showToast('Route assigned to ' + selectedPallet['Pallet ID'], 'success');
+      closeModal();
+      loadData();
+    } else {
+      showToast(json.error || 'Failed to assign route', 'error');
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Assign Route';
+}
+
+async function loadData() {
+  if (!scriptUrl) { setStatus('disconnected', 'No URL — go to Settings'); document.getElementById('loadingMsg').textContent = 'No script URL configured.'; return; }
+  setStatus('pending', 'Loading...');
+  try {
+    // Load pallets and routes in parallel
+    const [palletsJson, routesJson, hubsJson] = await Promise.all([
+      jsonpRequest(scriptUrl, { action: 'read' }),
+      jsonpRequest(scriptUrl, { action: 'readroutes' }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' })
+    ]);
+
+    if (palletsJson.success && routesJson.success) {
+      setStatus('connected', 'Connected');
+      // Get list of pallet IDs that already have routes
+      const routedIds = new Set((routesJson.data || []).map(r => r['Pallet ID'] || r['palletid'] || ''));
+      // Filter: Closed pallets without a route
+      const closedPallets = (palletsJson.data || []).filter(p => (p['Status']||'').toLowerCase() === 'closed');
+      unroutedPallets = closedPallets.filter(p => !routedIds.has(p['Pallet ID']));
+      renderTable(unroutedPallets);
+    } else {
+      setStatus('disconnected', 'Error');
+      document.getElementById('palletTableWrap').innerHTML = '<div class="empty-msg">Failed to load data.</div>';
+    }
+
+    // Store hub locations
+    if (hubsJson && hubsJson.success) {
+      hubLocations = hubsJson.data || [];
+    }
+  } catch(err) {
+    setStatus('disconnected', 'Connection failed');
+    document.getElementById('palletTableWrap').innerHTML = '<div class="empty-msg">Connection error: ' + escHtml(err.message) + '</div>';
+  }
+}
+
+document.getElementById('filterInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') e.preventDefault();
+});
+
+loadData();
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Settings</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .container { max-width: 700px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; }
+  label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
+  input[type="text"], input[type="url"] { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: Consolas, monospace; }
+  .save-btn { padding: 10px 24px; background: #1a3a5c; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  .save-btn:hover { background: #2c5f8a; }
+  .status-msg { font-size: 12px; margin-top: 8px; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+  }
+  @media (min-width: 769px) { .hamburger { display: none; } }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="settings.html" class="active"><span class="icon">⚙️</span> Settings</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Settings</h1><div class="header-sub">Configure Frontier Shipping</div></div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Google Apps Script URL</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:12px;">Paste the Web App URL from your deployed Apps Script here.</p>
+      <label>Apps Script URL</label>
+      <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <button class="save-btn" onclick="saveUrl()">Save URL</button>
+      <button class="save-btn" onclick="testConnection()" style="margin-left:8px;background:#28a745;">Test Connection</button>
+      <div class="status-msg" id="statusMsg"></div>
+      <div class="status-msg" id="testMsg"></div>
+    </div>
+    <div class="card">
+      <h2>Google Sheet</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:12px;">Direct link to the Frontier Tracking data sheet.</p>
+      <label>Google Sheet URL</label>
+      <input type="url" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+      <button class="save-btn" onclick="saveSheetUrl()" style="margin-right:8px;">Save</button>
+      <a id="sheetLink" href="#" target="_blank" style="display:none;padding:10px 24px;background:#28a745;color:white;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;margin-top:12px;display:inline-block;">Open Google Sheet ↗</a>
+      <div class="status-msg" id="sheetMsg"></div>
+    </div>
+  </div>
+</div>
+<script>
+const URL_KEY = 'fs_script_url';
+let _jsonpCounter = 0;
+
+document.getElementById('scriptUrl').value = localStorage.getItem(URL_KEY) || '';
+
+const SHEET_KEY = 'fs_sheet_url';
+const savedSheet = localStorage.getItem(SHEET_KEY) || '';
+document.getElementById('sheetUrl').value = savedSheet;
+if (savedSheet) {
+  const link = document.getElementById('sheetLink');
+  link.href = savedSheet;
+  link.style.display = 'inline-block';
+}
+
+function saveSheetUrl() {
+  const url = document.getElementById('sheetUrl').value.trim();
+  localStorage.setItem(SHEET_KEY, url);
+  const link = document.getElementById('sheetLink');
+  if (url) {
+    link.href = url;
+    link.style.display = 'inline-block';
+  } else {
+    link.style.display = 'none';
+  }
+  document.getElementById('sheetMsg').innerHTML = '<span style="color:#28a745;">✓ Saved</span>';
+}
+
+function saveUrl() {
+  const url = document.getElementById('scriptUrl').value.trim();
+  localStorage.setItem(URL_KEY, url);
+  document.getElementById('statusMsg').innerHTML = '<span style="color:#28a745;">✓ Saved</span>';
+}
+
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+async function testConnection() {
+  const url = localStorage.getItem(URL_KEY) || '';
+  const msg = document.getElementById('testMsg');
+  if (!url) { msg.innerHTML = '<span style="color:#dc3545;">No URL saved</span>'; return; }
+  msg.innerHTML = '<span style="color:#fd7e14;">Testing...</span>';
+  try {
+    const json = await jsonpRequest(url, { action: 'read' });
+    if (json.success) {
+      msg.innerHTML = '<span style="color:#28a745;">✓ Connected — ' + (json.data||[]).length + ' pallets found</span>';
+    } else {
+      msg.innerHTML = '<span style="color:#dc3545;">Error: ' + json.error + '</span>';
+    }
+  } catch(err) {
+    msg.innerHTML = '<span style="color:#dc3545;">Failed: ' + err.message + '</span>';
+  }
+}
+</script>
+</body>
+</html>

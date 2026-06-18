@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Login</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .login-card { background: white; border-radius: 12px; padding: 40px; width: 90%; max-width: 380px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+  .login-card img { width: 100%; max-width: 200px; display: block; margin: 0 auto 8px; }
+  .login-card h1 { text-align: center; font-size: 18px; color: #1a3a5c; margin-bottom: 24px; }
+  .login-card .sub { text-align: center; font-size: 12px; color: #888; margin-top: -18px; margin-bottom: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
+  .form-group input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+  .form-group input:focus { outline: none; border-color: #1a3a5c; }
+  .login-btn { width: 100%; padding: 12px; background: #1a3a5c; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .login-btn:hover { background: #2c5f8a; }
+  .login-btn:disabled { background: #aaa; cursor: not-allowed; }
+  .error { color: #dc3545; font-size: 12px; text-align: center; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="background:#1a3a5c;padding:12px 20px;border-radius:8px;">
+  <h1>Frontier Shipping</h1>
+  <div class="sub">Transportation Tracking System</div>
+  <div class="form-group">
+    <label>Username</label>
+    <input type="text" id="username" autocomplete="off" autofocus>
+  </div>
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" id="password">
+  </div>
+  <button class="login-btn" id="loginBtn" onclick="doLogin()">Log In</button>
+  <div class="error" id="errorMsg"></div>
+</div>
+<script>
+const URL_KEY = 'fs_script_url';
+const AUTH_KEY = 'fs_auth';
+let scriptUrl = '';
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+let _jsonpCounter = 0;
+
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+document.getElementById('password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+document.getElementById('username').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('password').focus(); });
+
+async function doLogin() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const errEl = document.getElementById('errorMsg');
+  errEl.style.display = 'none';
+
+  if (!username || !password) { errEl.textContent = 'Enter username and password'; errEl.style.display = 'block'; return; }
+  if (!scriptUrl) { errEl.textContent = 'No Apps Script URL configured. Go to settings.html'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Logging in...';
+
+  try {
+    const json = await jsonpRequest(scriptUrl, { action: 'login', username: username, password: password });
+    if (json.success) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ username: json.username, role: json.role }));
+      window.location.href = 'overview.html';
+    } else {
+      errEl.textContent = json.error || 'Login failed';
+      errEl.style.display = 'block';
+    }
+  } catch(err) {
+    errEl.textContent = 'Connection error: ' + err.message;
+    errEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Log In';
+}
+</script>
+</body>
+</html>

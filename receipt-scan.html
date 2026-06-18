@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Hub Receipt Scan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 24px; width: 100%; }
+  .scan-card { background: white; border-radius: 10px; padding: 32px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; text-align: center; }
+  .scan-card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 20px; }
+  .scan-input { width: 100%; max-width: 480px; padding: 18px 24px; font-size: 24px; font-family: Consolas, 'Courier New', monospace; border: 2px solid #1a3a5c; border-radius: 10px; text-align: center; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+  .scan-input:focus { border-color: #20c997; box-shadow: 0 0 0 4px rgba(32,201,151,0.15); }
+  .scan-input::placeholder { color: #aaa; font-size: 20px; }
+  .scan-hint { font-size: 12px; color: #888; margin-top: 10px; }
+  .recent-card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .recent-card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .recent-list { list-style: none; }
+  .recent-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+  .recent-list li:last-child { border-bottom: none; }
+  .recent-list .result-icon { font-size: 18px; width: 24px; text-align: center; }
+  .recent-list .result-icon.success { color: #28a745; }
+  .recent-list .result-icon.error { color: #dc3545; }
+  .recent-list .scan-id { font-family: Consolas, monospace; font-weight: 600; color: #1a3a5c; }
+  .recent-list .scan-msg { color: #555; flex: 1; }
+  .recent-list .scan-time { font-size: 11px; color: #999; white-space: nowrap; }
+  .empty-state { color: #999; font-size: 13px; text-align: center; padding: 20px 0; }
+  .awaiting-card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-top: 20px; }
+  .awaiting-card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
+  table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+    .scan-input { font-size: 18px; padding: 14px 16px; }
+  }
+  @media (min-width: 769px) { .hamburger { display: none; } }
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 500; justify-content: center; align-items: center; }
+  .modal-overlay.show { display: flex; }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html" class="active"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Hub Receipt Scan</h1><div class="header-sub">Scan pallets received at this hub</div></div>
+    <div class="header-right">
+      <span class="status-dot connected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Ready</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="scan-card">
+      <h2>✅ Scan Pallet for Receipt</h2>
+      <input type="text" class="scan-input" id="scanInput" placeholder="Scan Pallet ID..." autofocus autocomplete="off" spellcheck="false">
+      <div class="scan-hint">Scan barcode or type pallet ID and press Enter</div>
+    </div>
+    <div class="recent-card">
+      <h2>Recent Scans</h2>
+      <ul class="recent-list" id="recentList">
+        <li class="empty-state">No scans this session</li>
+      </ul>
+    </div>
+    <div class="awaiting-card">
+      <h2>Dropped Off — Awaiting Receipt</h2>
+      <div id="awaitingReceiptWrap"><div class="empty-state">Loading...</div></div>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="confirmModal" onclick="if(event.target===this)closeConfirmModal()">
+  <div style="background:white;border-radius:10px;padding:28px;max-width:420px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.25);text-align:center;">
+    <h3 style="color:#1a3a5c;margin-bottom:16px;font-size:18px;">Confirm Hub Receipt Scan</h3>
+    <div id="confirmDetails" style="text-align:left;background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;font-size:13px;"></div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button onclick="closeConfirmModal()" style="padding:10px 24px;background:#e9ecef;color:#333;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>
+      <button id="confirmActionBtn" onclick="executeConfirmedScan()" style="padding:10px 24px;background:#1a3a5c;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Confirm</button>
+    </div>
+  </div>
+</div>
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:400;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '';
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+
+function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
+
+let _jsonpCounter = 0;
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 3000);
+}
+
+const recentScans = [];
+
+function renderRecent() {
+  const list = document.getElementById('recentList');
+  if (recentScans.length === 0) {
+    list.innerHTML = '<li class="empty-state">No scans this session</li>';
+    return;
+  }
+  list.innerHTML = recentScans.map(s => `
+    <li>
+      <span class="result-icon ${s.success ? 'success' : 'error'}">${s.success ? '✓' : '✗'}</span>
+      <span class="scan-id">${s.palletId}</span>
+      <span class="scan-msg">${s.message}</span>
+      <span class="scan-time">${s.time}</span>
+    </li>
+  `).join('');
+}
+
+let pendingScan = null;
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').classList.remove('show');
+  pendingScan = null;
+  document.getElementById('scanInput').value = '';
+  document.getElementById('scanInput').focus();
+}
+
+function doScan(palletId) {
+  if (!palletId.trim()) return;
+  if (!scriptUrl) { showToast('No script URL configured — go to Settings', 'error'); return; }
+
+  const user = getUser();
+  pendingScan = { palletId: palletId.trim(), user: user };
+
+  const detailsHtml = '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pallet ID</span><br><strong style="font-size:16px;font-family:Consolas,monospace;">' + escHtml(palletId.trim()) + '</strong></div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Received By</span><br><strong>' + escHtml(user) + '</strong></div>';
+  document.getElementById('confirmDetails').innerHTML = detailsHtml;
+  document.getElementById('confirmModal').classList.add('show');
+}
+
+async function executeConfirmedScan() {
+  if (!pendingScan) return;
+  const { palletId, user } = pendingScan;
+  document.getElementById('confirmModal').classList.remove('show');
+
+  document.getElementById('statusDot').className = 'status-dot pending';
+  document.getElementById('statusLabel').textContent = 'Scanning...';
+
+  try {
+    const json = await jsonpRequest(scriptUrl, {
+      action: 'receiptscan',
+      palletid: palletId,
+      user: user
+    });
+
+    if (json.success) {
+      const msg = palletId + ' received — Leg ' + (json.leg || json.legNumber || '?') + ' complete';
+      showToast(msg, 'success');
+      recentScans.unshift({ palletId: palletId, success: true, message: 'Received — Leg ' + (json.leg || json.legNumber || '?') + ' complete', time: new Date().toLocaleTimeString('en-US', {timeZone:'America/New_York', hour:'numeric', minute:'2-digit', hour12:true}) });
+    } else {
+      const errMsg = json.error || 'Scan failed';
+      showToast(errMsg, 'error');
+      recentScans.unshift({ palletId: palletId, success: false, message: errMsg, time: new Date().toLocaleTimeString('en-US', {timeZone:'America/New_York', hour:'numeric', minute:'2-digit', hour12:true}) });
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+    recentScans.unshift({ palletId: palletId, success: false, message: err.message, time: new Date().toLocaleTimeString('en-US', {timeZone:'America/New_York', hour:'numeric', minute:'2-digit', hour12:true}) });
+  }
+
+  if (recentScans.length > 10) recentScans.pop();
+  renderRecent();
+  pendingScan = null;
+  document.getElementById('scanInput').value = '';
+  document.getElementById('scanInput').focus();
+  document.getElementById('statusDot').className = 'status-dot connected';
+  document.getElementById('statusLabel').textContent = 'Ready';
+}
+
+document.getElementById('scanInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (val) { doScan(val); }
+  }
+});
+
+function fmtDate(str) {
+  if (!str) return '—';
+  const s = str.toString().trim();
+  if (!s) return '—';
+  const m = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if (m) {
+    const month = m[1], day = m[2], hr = parseInt(m[4]), min = m[5];
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return month + '/' + day + '/' + m[3] + ', ' + h12 + ':' + min + ' ' + ampm;
+  }
+  return s;
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
+async function loadAwaitingReceipt() {
+  if (!scriptUrl) return;
+  try {
+    const legsJson = await jsonpRequest(scriptUrl, { action: 'readlegs' });
+    if (!legsJson.success) return;
+
+    const legs = legsJson.data || [];
+    // Find Transfer legs that are "Dropped Off" but not yet received
+    const droppedOffLegs = legs.filter(l => (l['Status']||'').trim() === 'Dropped Off');
+
+    const wrap = document.getElementById('awaitingReceiptWrap');
+    if (droppedOffLegs.length === 0) {
+      wrap.innerHTML = '<div class="empty-state">No pallets awaiting receipt</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Pallet ID</th><th>From</th><th>Dropped Off At</th><th>Dropoff Time</th><th>Driver</th><th>Leg #</th></tr></thead><tbody>';
+    droppedOffLegs.forEach(l => {
+      html += '<tr>';
+      html += '<td><strong>' + escHtml(l['Pallet ID']||'') + '</strong></td>';
+      html += '<td>' + escHtml(l['From Location']||'—') + '</td>';
+      html += '<td>' + escHtml(l['To Location']||'—') + '</td>';
+      html += '<td>' + fmtDate(l['Dropoff Scan Date']||'') + '</td>';
+      html += '<td>' + escHtml(l['Dropoff Scan By']||'—') + '</td>';
+      html += '<td>' + escHtml(l['Leg #']||'') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  } catch(err) { /* silent */ }
+}
+
+loadAwaitingReceipt();
+</script>
+</body>
+</html>
