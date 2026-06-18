@@ -488,8 +488,14 @@ function openBolPreview(palletId, leg, legNum, totalLegs) {
         <div style="font-size:18px;font-weight:bold;letter-spacing:1px;">FRONTIER SHIPPING — BILL OF LADING</div>
       </div>
 
-      <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;">
-        <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin-bottom:10px;text-transform:uppercase;">Shipment Information</div>
+      <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:600;color:#1a3a5c;text-transform:uppercase;">Shipment Information</div>
+          <div style="background:#1a3a5c;color:white;padding:8px 16px;border-radius:8px;text-align:center;">
+            <div style="font-size:9px;text-transform:uppercase;opacity:0.8;">Leg</div>
+            <div style="font-size:18px;font-weight:700;">${legNum} of ${totalLegs}</div>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div>
             <div style="font-size:10px;color:#888;text-transform:uppercase;">Pallet ID</div>
@@ -499,10 +505,7 @@ function openBolPreview(palletId, leg, legNum, totalLegs) {
           <div>
             <div style="font-size:10px;color:#888;text-transform:uppercase;">Tracking #</div>
             <div style="font-size:14px;font-weight:700;font-family:Consolas,monospace;margin-top:2px;">${escHtml(trackingNum)}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase;">Leg</div>
-            <div style="font-size:14px;font-weight:600;margin-top:2px;">${legNum} of ${totalLegs}</div>
+            <svg id="bolTrackingBarcode" style="margin-top:4px;"></svg>
           </div>
           <div>
             <div style="font-size:10px;color:#888;text-transform:uppercase;">From</div>
@@ -588,6 +591,7 @@ function openBolPreview(palletId, leg, legNum, totalLegs) {
   setTimeout(() => {
     try {
       JsBarcode('#bolBarcode', palletId, { format: 'CODE128', width: 1.5, height: 30, displayValue: false, margin: 0 });
+      JsBarcode('#bolTrackingBarcode', trackingNum, { format: 'CODE128', width: 1.5, height: 30, displayValue: false, margin: 0 });
     } catch(e) {}
   }, 50);
 }
@@ -657,8 +661,8 @@ function openNextStopLabel(palletId) {
         </div>
         <div style="background:#f0f8f0;border:2px solid ${legTypeColor};border-radius:8px;padding:20px;">
           <div style="font-size:11px;color:#888;text-transform:uppercase;font-weight:600;margin-bottom:6px;letter-spacing:0.5px;">Deliver To</div>
-          <div style="font-size:24px;font-weight:700;color:#1a3a5c;">${escHtml(toLoc)}</div>
-          <div style="font-size:16px;color:#333;margin-top:8px;line-height:1.5;">${escHtml(toAddress || toLoc)}</div>
+          <div style="font-size:20px;font-weight:700;color:#1a3a5c;">${legType === 'Final' ? 'Final Delivery' : escHtml(toLoc)}</div>
+          <div style="font-size:16px;color:#333;margin-top:8px;line-height:1.5;">${legType === 'Final' ? escHtml(toLoc) : escHtml(toAddress || toLoc)}</div>
         </div>
         <div style="background:#f8f9fa;border:2px solid #dee2e6;border-radius:8px;padding:20px;">
           <div style="font-size:11px;color:#888;text-transform:uppercase;font-weight:600;margin-bottom:6px;letter-spacing:0.5px;">Ship From</div>
