@@ -137,12 +137,13 @@
         <input type="text" id="filterText" placeholder="Filter by Pallet ID..." oninput="renderAllPallets()" style="flex:1;min-width:180px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
         <select id="filterStatus" onchange="renderAllPallets()" style="padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:white;">
           <option value="">All Statuses</option>
-          <option value="Open">Open</option>
-          <option value="Closed">Closed</option>
-          <option value="In Transit">In Transit</option>
-          <option value="At Hub">At Hub</option>
+          <option value="Open">Open Pallets</option>
+          <option value="Closed - No Route">Closed Awaiting Routing</option>
+          <option value="Closed - Routed">Routed Awaiting Pickup</option>
+          <option value="In Transit to Hub">In Transit to Hub</option>
+          <option value="At Hub">At Crossdock Hub</option>
+          <option value="In Transit to Final">In Transit to Final</option>
           <option value="Delivered">Delivered</option>
-          <option value="On Hold">On Hold</option>
         </select>
         <span id="palletCount" style="font-size:12px;color:#666;background:#f0f2f5;padding:6px 12px;border-radius:12px;font-weight:600;">0 pallets</span>
       </div>
@@ -304,7 +305,17 @@ function renderAllPallets() {
     filtered = filtered.filter(p => (p['Pallet ID']||'').toLowerCase().includes(textFilter));
   }
   if (statusFilter) {
-    filtered = filtered.filter(p => (p['Status']||'').trim() === statusFilter);
+    const categoryMap = {
+      'Open': 'open',
+      'Closed - No Route': 'closedNoRoute',
+      'Closed - Routed': 'routedPending',
+      'In Transit to Hub': 'transitHub',
+      'At Hub': 'atHub',
+      'In Transit to Final': 'transitFinal',
+      'Delivered': 'delivered'
+    };
+    const cat = categoryMap[statusFilter];
+    if (cat) filtered = filtered.filter(p => getPizzaCategory(p) === cat);
   }
   if (activeCategoryFilter) {
     filtered = filtered.filter(p => getPizzaCategory(p) === activeCategoryFilter);

@@ -135,6 +135,11 @@
     </div>
   </div>
   <div class="container">
+    <!-- Operator Name -->
+    <div class="card" style="padding:16px 24px;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
+      <label style="font-size:12px;font-weight:600;color:#666;text-transform:uppercase;white-space:nowrap;margin:0;">Operator Name</label>
+      <input type="text" id="operatorName" placeholder="Enter your name..." style="flex:1;max-width:300px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;" autocomplete="off">
+    </div>
     <!-- Section 1: Create New Pallet -->
     <div class="card">
       <h2>Create New Pallet</h2>
@@ -320,11 +325,24 @@ function fmtDate(str) {
   return s;
 }
 
+// ===== OPERATOR NAME =====
+function getOperatorName() {
+  const name = document.getElementById('operatorName').value.trim();
+  if (!name) {
+    showToast('Enter your name in "Operator Name" at the top', 'error');
+    document.getElementById('operatorName').focus();
+    return null;
+  }
+  return name;
+}
+
 // ===== CREATE PALLET =====
 async function createPallet() {
   const origin = document.getElementById('originSelect').value;
   const description = document.getElementById('createDesc').value.trim();
   if (!origin) { showToast('Select an origin', 'error'); return; }
+  const operatorName = getOperatorName();
+  if (!operatorName) return;
 
   const btn = document.getElementById('createBtn');
   btn.disabled = true; btn.textContent = 'Creating...';
@@ -334,7 +352,7 @@ async function createPallet() {
       action: 'createpallet',
       origin: origin,
       description: description,
-      user: getUser()
+      user: operatorName
     });
     if (json.success) {
       document.getElementById('newPalletId').textContent = json.palletId;
@@ -541,6 +559,8 @@ function closeCloseModal() {
 
 async function confirmClosePallet() {
   if (!palletToClose) return;
+  const operatorName = getOperatorName();
+  if (!operatorName) return;
   const btn = document.getElementById('confirmCloseBtn');
   btn.disabled = true; btn.textContent = 'Closing...';
 
@@ -548,7 +568,7 @@ async function confirmClosePallet() {
     const json = await jsonpRequest(scriptUrl, {
       action: 'closepallet',
       palletid: palletToClose,
-      user: getUser()
+      user: operatorName
     });
     if (json.success) {
       showToast('Pallet ' + palletToClose + ' closed', 'success');
@@ -714,6 +734,8 @@ function closeReopenModal() {
 
 async function confirmReopenPallet() {
   if (!palletToReopen) return;
+  const operatorName = getOperatorName();
+  if (!operatorName) return;
   const btn = document.getElementById('confirmReopenBtn');
   btn.disabled = true; btn.textContent = 'Reopening...';
 
@@ -721,7 +743,7 @@ async function confirmReopenPallet() {
     const json = await jsonpRequest(scriptUrl, {
       action: 'reopenpallet',
       palletid: palletToReopen,
-      user: getUser()
+      user: operatorName
     });
     if (json.success) {
       showToast('Pallet ' + palletToReopen + ' reopened', 'success');

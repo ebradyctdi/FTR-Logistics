@@ -171,6 +171,7 @@ function renderRecent() {
 }
 
 let pendingScan = null;
+let allTransitLegs = [];
 
 function closeConfirmModal() {
   document.getElementById('confirmModal').classList.remove('show');
@@ -183,18 +184,25 @@ function doScan(palletId) {
   if (!palletId.trim()) return;
   if (!scriptUrl) { showToast('No script URL configured — go to Settings', 'error'); return; }
 
-  const user = getUser();
-  pendingScan = { palletId: palletId.trim(), user: user };
+  // Find the in-transit leg for this pallet to get driver and destination
+  const leg = allTransitLegs.find(l => (l['Pallet ID']||'').trim() === palletId.trim());
+  const driver = leg ? (leg['Pickup Scan By']||'') : '';
+  const dropoffLoc = leg ? (leg['To Location']||'—') : '—';
+  const defaultUser = driver || getUser();
+
+  pendingScan = { palletId: palletId.trim(), user: defaultUser };
 
   const detailsHtml = '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pallet ID</span><br><strong style="font-size:16px;font-family:Consolas,monospace;">' + escHtml(palletId.trim()) + '</strong></div>' +
-    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Dropped Off By</span><br><strong>' + escHtml(user) + '</strong></div>';
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Dropoff Location</span><br><strong style="color:#1a3a5c;">' + escHtml(dropoffLoc) + '</strong></div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Dropped Off By</span><br><input type="text" id="dropoffByInput" value="' + escHtml(defaultUser) + '" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-weight:600;margin-top:4px;"></div>';
   document.getElementById('confirmDetails').innerHTML = detailsHtml;
   document.getElementById('confirmModal').classList.add('show');
 }
 
 async function executeConfirmedScan() {
   if (!pendingScan) return;
-  const { palletId, user } = pendingScan;
+  const { palletId } = pendingScan;
+  const user = document.getElementById('dropoffByInput').value.trim() || pendingScan.user;
   document.getElementById('confirmModal').classList.remove('show');
 
   document.getElementById('statusDot').className = 'status-dot pending';
@@ -267,6 +275,7 @@ async function loadInTransit() {
     const legs = legsJson.data || [];
     // Find legs that are In Transit (picked up but not yet dropped off)
     const transitLegs = legs.filter(l => (l['Status']||'').trim() === 'In Transit');
+    allTransitLegs = transitLegs;
 
     const wrap = document.getElementById('transitTableWrap');
     if (transitLegs.length === 0) {
