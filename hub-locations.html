@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Frontier Shipping - Hub Locations</title>
+<title>Frontier Shipping - Routing Locations</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
@@ -26,16 +26,20 @@
   .status-dot.disconnected { background: #dc3545; }
   .status-dot.pending { background: #fd7e14; }
   .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
-  .container { max-width: 1000px; margin: 0 auto; padding: 24px; width: 100%; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; width: 100%; }
   .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
   .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+  .card-top h2 { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+  .add-btn { padding: 8px 18px; background: #1a3a5c; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .add-btn:hover { background: #2c5f8a; }
   .form-group { margin-bottom: 16px; }
   .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
   .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
   .form-group textarea { resize: vertical; min-height: 60px; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .submit-btn { padding: 12px 32px; background: #1a3a5c; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .submit-btn { padding: 12px 32px; background: #1a3a5c; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; }
   .submit-btn:hover { background: #2c5f8a; }
   .submit-btn:disabled { background: #aaa; cursor: not-allowed; }
   .edit-btn { padding: 6px 14px; background: #1a3a5c; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -44,6 +48,8 @@
   table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
   table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
   table tr:hover { background: #f8f9fa; }
+  .badge-hub { background: #d4edda; color: #155724; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
+  .badge-final { background: #cce5ff; color: #004085; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
   .empty-msg { text-align: center; color: #888; padding: 30px; font-size: 14px; }
   .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 500; justify-content: center; align-items: center; }
   .modal-overlay.show { display: flex; }
@@ -88,13 +94,13 @@
     <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
     <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
     <div class="nav-section">System</div>
-    <a href="hub-locations.html" class="active"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="hub-locations.html" class="active"><span class="icon">🏭</span> Routing Locations</a>
     <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
   </div>
 </nav>
 <div class="main-wrap">
   <div class="header">
-    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Hub Locations</h1><div class="header-sub">Manage shipping hub locations</div></div>
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button><h1>Routing Locations</h1><div class="header-sub">Manage hub and final delivery locations</div></div>
     <div class="header-right">
       <span class="status-dot disconnected" id="statusDot"></span>
       <span class="status-label" id="statusLabel">Not connected</span>
@@ -102,53 +108,80 @@
   </div>
   <div class="container">
     <div class="card">
-      <h2>Existing Hub Locations</h2>
+      <div class="card-top">
+        <h2>All Locations</h2>
+        <button class="add-btn" onclick="openAddModal()">➕ Add New Location</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <select id="filterType" onchange="renderLocationTable(locationsData)" style="padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:white;">
+          <option value="">All Types</option>
+          <option value="Hub">Hub</option>
+          <option value="Final Location">Final Location</option>
+        </select>
+        <input type="text" id="filterAddress" placeholder="Filter by name or address..." oninput="renderLocationTable(locationsData)" style="flex:1;min-width:200px;padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+      </div>
       <div id="hubTableWrap">
-        <div class="empty-msg" id="loadingMsg">Loading hub locations...</div>
+        <div class="empty-msg" id="loadingMsg">Loading locations...</div>
       </div>
-    </div>
-    <div class="card">
-      <h2>Add New Hub</h2>
-      <div class="form-group">
-        <label>Location ID</label>
-        <input type="text" id="locationId" placeholder="e.g. HUB-001">
-      </div>
-      <div class="form-group">
-        <label>Name</label>
-        <input type="text" id="hubName" placeholder="e.g. Pittsburgh Warehouse">
-      </div>
-      <div class="form-group">
-        <label>Street Address</label>
-        <input type="text" id="hubStreet" placeholder="e.g. 123 Main St">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>City</label>
-          <input type="text" id="hubCity" placeholder="e.g. Pittsburgh">
-        </div>
-        <div class="form-group">
-          <label>State</label>
-          <input type="text" id="hubState" placeholder="e.g. PA">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>ZIP</label>
-        <input type="text" id="hubZip" placeholder="e.g. 15201" style="max-width:140px;">
-      </div>
-      <div class="form-group">
-        <label>Notes (optional)</label>
-        <textarea id="hubNotes" placeholder="Any additional notes..."></textarea>
-      </div>
-      <button class="submit-btn" id="addBtn" onclick="addHub()">Add Hub</button>
     </div>
   </div>
 </div>
 
-<!-- Edit Modal -->
+<!-- Add Location Modal -->
+<div class="modal-overlay" id="addModal" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add New Location</h3>
+      <button class="close-btn" onclick="closeAddModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Location ID</label>
+        <input type="text" id="addLocationId" placeholder="e.g. FL4">
+      </div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="addName" placeholder="e.g. Stratford, CT">
+      </div>
+      <div class="form-group">
+        <label>Location Type</label>
+        <select id="addLocationType">
+          <option value="Hub">Hub</option>
+          <option value="Final Location">Final Location</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Street Address</label>
+        <input type="text" id="addStreet" placeholder="e.g. 123 Main St">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>City</label>
+          <input type="text" id="addCity" placeholder="e.g. Stratford">
+        </div>
+        <div class="form-group">
+          <label>State</label>
+          <input type="text" id="addState" placeholder="e.g. CT">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ZIP</label>
+        <input type="text" id="addZip" placeholder="e.g. 06615" style="max-width:140px;">
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="addNotes" placeholder="Any additional notes..."></textarea>
+      </div>
+      <button class="submit-btn" id="addBtn" onclick="addLocation()">Add Location</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Location Modal -->
 <div class="modal-overlay" id="editModal" onclick="if(event.target===this)closeEditModal()">
   <div class="modal">
     <div class="modal-header">
-      <h3>Edit Hub — <span id="editHubTitle"></span></h3>
+      <h3>Edit Location — <span id="editHubTitle"></span></h3>
       <button class="close-btn" onclick="closeEditModal()">&times;</button>
     </div>
     <div class="modal-body">
@@ -156,6 +189,13 @@
       <div class="form-group">
         <label>Name</label>
         <input type="text" id="editName">
+      </div>
+      <div class="form-group">
+        <label>Location Type</label>
+        <select id="editLocationType">
+          <option value="Hub">Hub</option>
+          <option value="Final Location">Final Location</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Street Address</label>
@@ -179,7 +219,7 @@
         <label>Notes (optional)</label>
         <textarea id="editNotes"></textarea>
       </div>
-      <button class="submit-btn" id="saveBtn" onclick="saveHub()">Save Changes</button>
+      <button class="submit-btn" id="saveBtn" onclick="saveLocation()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -189,7 +229,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwaLGGu_myYwE_PqDOaRWtAW-RNpoZNMd17fr1-qI1erBW1rBqf2cgDRDRBtBTXfgZJ/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -223,23 +263,49 @@ function showToast(msg, type) {
 
 function escHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
 
-let hubsData = [];
+let locationsData = [];
 
-function renderHubTable(hubs) {
-  hubsData = hubs || [];
+function renderLocationTable(locations) {
+  locationsData = locations || locationsData;
   const wrap = document.getElementById('hubTableWrap');
-  if (!hubsData.length) {
-    wrap.innerHTML = '<div class="empty-msg">No hub locations found. Add one below.</div>';
+  
+  // Apply filters
+  const typeFilter = (document.getElementById('filterType') || {}).value || '';
+  const textFilter = ((document.getElementById('filterAddress') || {}).value || '').toLowerCase().trim();
+  
+  let filtered = locationsData;
+  if (typeFilter) {
+    filtered = filtered.filter(h => (h['Location Type']||'') === typeFilter);
+  }
+  if (textFilter) {
+    filtered = filtered.filter(h => 
+      (h['Name']||'').toLowerCase().includes(textFilter) || 
+      (h['Address']||'').toLowerCase().includes(textFilter) ||
+      (h['Location ID']||'').toLowerCase().includes(textFilter)
+    );
+  }
+  
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="empty-msg">No locations found.</div>';
     return;
   }
-  let html = '<table><thead><tr><th>Location ID</th><th>Name</th><th>Address</th><th>Notes</th><th>Actions</th></tr></thead><tbody>';
-  hubsData.forEach((h, i) => {
+  let html = '<table><thead><tr><th>Location ID</th><th>Name</th><th>Address</th><th>Location Type</th><th>Notes</th><th>Actions</th></tr></thead><tbody>';
+  filtered.forEach((h) => {
+    const origIndex = locationsData.indexOf(h);
+    const locType = h['Location Type'] || '';
+    let badge = '';
+    if (locType.toLowerCase() === 'hub') {
+      badge = '<span class="badge-hub">Hub</span>';
+    } else if (locType) {
+      badge = '<span class="badge-final">Final Location</span>';
+    }
     html += '<tr>';
     html += '<td>' + escHtml(h['Location ID']||'') + '</td>';
     html += '<td>' + escHtml(h['Name']||'') + '</td>';
     html += '<td>' + escHtml(h['Address']||'') + '</td>';
+    html += '<td>' + badge + '</td>';
     html += '<td>' + escHtml(h['Notes']||'') + '</td>';
-    html += '<td><button class="edit-btn" onclick="openEditModal(' + i + ')">Edit</button></td>';
+    html += '<td><button class="edit-btn" onclick="openEditModal(' + origIndex + ')">Edit</button></td>';
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -252,7 +318,6 @@ function parseAddress(address) {
   if (parts.length >= 3) {
     const street = parts[0] || '';
     const city = parts[1] || '';
-    // Third part could be "State ZIP" or just "State"
     const stateZipPart = parts.slice(2).join(', ');
     const stateZipMatch = stateZipPart.match(/^(.+?)\s+(\d{5}(?:-\d{4})?)$/);
     if (stateZipMatch) {
@@ -267,21 +332,81 @@ function parseAddress(address) {
   }
 }
 
+// Add Modal
+function openAddModal() {
+  document.getElementById('addLocationId').value = '';
+  document.getElementById('addName').value = '';
+  document.getElementById('addLocationType').value = 'Hub';
+  document.getElementById('addStreet').value = '';
+  document.getElementById('addCity').value = '';
+  document.getElementById('addState').value = '';
+  document.getElementById('addZip').value = '';
+  document.getElementById('addNotes').value = '';
+  document.getElementById('addModal').classList.add('show');
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('show');
+}
+
+async function addLocation() {
+  const locationId = document.getElementById('addLocationId').value.trim();
+  const name = document.getElementById('addName').value.trim();
+  const locationType = document.getElementById('addLocationType').value;
+  const street = document.getElementById('addStreet').value.trim();
+  const city = document.getElementById('addCity').value.trim();
+  const state = document.getElementById('addState').value.trim();
+  const zip = document.getElementById('addZip').value.trim();
+  const notes = document.getElementById('addNotes').value.trim();
+
+  if (!locationId) { showToast('Location ID is required', 'error'); return; }
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!street) { showToast('Street address is required', 'error'); return; }
+
+  const address = street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '');
+
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true; btn.textContent = 'Adding...';
+
+  try {
+    const json = await jsonpRequest(scriptUrl, {
+      action: 'addhub',
+      locationid: locationId,
+      name: name,
+      address: address,
+      locationtype: locationType,
+      notes: notes
+    });
+    if (json.success) {
+      showToast('Location "' + name + '" added successfully', 'success');
+      closeAddModal();
+      loadLocations();
+    } else {
+      showToast(json.error || 'Failed to add location', 'error');
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Add Location';
+}
+
+// Edit Modal
 let editingIndex = -1;
 
 function openEditModal(index) {
-  const hub = hubsData[index];
-  if (!hub) return;
+  const loc = locationsData[index];
+  if (!loc) return;
   editingIndex = index;
-  const parsed = parseAddress(hub['Address'] || '');
-  document.getElementById('editHubTitle').textContent = hub['Name'] || '';
-  document.getElementById('editLocId').textContent = hub['Location ID'] || '';
-  document.getElementById('editName').value = hub['Name'] || '';
+  const parsed = parseAddress(loc['Address'] || '');
+  document.getElementById('editHubTitle').textContent = loc['Name'] || '';
+  document.getElementById('editLocId').textContent = loc['Location ID'] || '';
+  document.getElementById('editName').value = loc['Name'] || '';
+  document.getElementById('editLocationType').value = loc['Location Type'] || 'Hub';
   document.getElementById('editStreet').value = parsed.street;
   document.getElementById('editCity').value = parsed.city;
   document.getElementById('editState').value = parsed.state;
   document.getElementById('editZip').value = parsed.zip;
-  document.getElementById('editNotes').value = hub['Notes'] || '';
+  document.getElementById('editNotes').value = loc['Notes'] || '';
   document.getElementById('editModal').classList.add('show');
 }
 
@@ -290,9 +415,10 @@ function closeEditModal() {
   editingIndex = -1;
 }
 
-async function saveHub() {
+async function saveLocation() {
   if (editingIndex < 0) return;
   const name = document.getElementById('editName').value.trim();
+  const locationType = document.getElementById('editLocationType').value;
   const street = document.getElementById('editStreet').value.trim();
   const city = document.getElementById('editCity').value.trim();
   const state = document.getElementById('editState').value.trim();
@@ -313,14 +439,15 @@ async function saveHub() {
       row: editingIndex,
       name: name,
       address: address,
+      locationtype: locationType,
       notes: notes
     });
     if (json.success) {
-      showToast('Hub updated successfully', 'success');
+      showToast('Location updated successfully', 'success');
       closeEditModal();
-      loadHubs();
+      loadLocations();
     } else {
-      showToast(json.error || 'Failed to update hub', 'error');
+      showToast(json.error || 'Failed to update location', 'error');
     }
   } catch(err) {
     showToast('Error: ' + err.message, 'error');
@@ -328,17 +455,17 @@ async function saveHub() {
   btn.disabled = false; btn.textContent = 'Save Changes';
 }
 
-async function loadHubs() {
+async function loadLocations() {
   if (!scriptUrl) { setStatus('disconnected', 'No URL — go to Settings'); document.getElementById('hubTableWrap').innerHTML = '<div class="empty-msg">No script URL configured.</div>'; return; }
   setStatus('pending', 'Loading...');
   try {
     const json = await jsonpRequest(scriptUrl, { action: 'readhubs' });
     if (json.success) {
       setStatus('connected', 'Connected');
-      renderHubTable(json.data || []);
+      renderLocationTable(json.data || []);
     } else {
       setStatus('disconnected', 'Error');
-      document.getElementById('hubTableWrap').innerHTML = '<div class="empty-msg">Failed to load hubs.</div>';
+      document.getElementById('hubTableWrap').innerHTML = '<div class="empty-msg">Failed to load locations.</div>';
     }
   } catch(err) {
     setStatus('disconnected', 'Connection failed');
@@ -346,52 +473,7 @@ async function loadHubs() {
   }
 }
 
-async function addHub() {
-  const locationId = document.getElementById('locationId').value.trim();
-  const name = document.getElementById('hubName').value.trim();
-  const street = document.getElementById('hubStreet').value.trim();
-  const city = document.getElementById('hubCity').value.trim();
-  const state = document.getElementById('hubState').value.trim();
-  const zip = document.getElementById('hubZip').value.trim();
-  const notes = document.getElementById('hubNotes').value.trim();
-
-  if (!locationId) { showToast('Location ID is required', 'error'); return; }
-  if (!name) { showToast('Name is required', 'error'); return; }
-  if (!street) { showToast('Street address is required', 'error'); return; }
-
-  const address = street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '');
-
-  const btn = document.getElementById('addBtn');
-  btn.disabled = true; btn.textContent = 'Adding...';
-
-  try {
-    const json = await jsonpRequest(scriptUrl, {
-      action: 'addhub',
-      locationid: locationId,
-      name: name,
-      address: address,
-      notes: notes
-    });
-    if (json.success) {
-      showToast('Hub "' + name + '" added successfully', 'success');
-      document.getElementById('locationId').value = '';
-      document.getElementById('hubName').value = '';
-      document.getElementById('hubStreet').value = '';
-      document.getElementById('hubCity').value = '';
-      document.getElementById('hubState').value = '';
-      document.getElementById('hubZip').value = '';
-      document.getElementById('hubNotes').value = '';
-      loadHubs();
-    } else {
-      showToast(json.error || 'Failed to add hub', 'error');
-    }
-  } catch(err) {
-    showToast('Error: ' + err.message, 'error');
-  }
-  btn.disabled = false; btn.textContent = 'Add Hub';
-}
-
-loadHubs();
+loadLocations();
 </script>
 </body>
 </html>

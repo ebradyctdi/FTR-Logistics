@@ -81,7 +81,7 @@
     <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
     <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
     <div class="nav-section">System</div>
-    <a href="hub-locations.html"><span class="icon">🏭</span> Hub Locations</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
     <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
   </div>
 </nav>
@@ -101,11 +101,11 @@
           <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Picked Up By</label>
           <input type="text" id="pickedUpBy" placeholder="Your name..." style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;" autocomplete="off">
         </div>
-        <div style="flex:1;">
+        <div style="flex:1;position:relative;">
           <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Location</label>
-          <select id="pickupLocation" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:white;">
-            <option value="">— Select Hub —</option>
-          </select>
+          <input type="text" id="pickupLocationSearch" placeholder="Type to search hubs..." autocomplete="off" oninput="filterPickupLocation()" onfocus="showPickupLocationList()" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+          <input type="hidden" id="pickupLocation" value="">
+          <div id="pickupLocationList" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
         </div>
       </div>
       <input type="text" class="scan-input" id="scanInput" placeholder="Scan Pallet ID..." autofocus autocomplete="off" spellcheck="false">
@@ -137,7 +137,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbws5tBpSc34EDnhAv_3qYJXGhJ4VpZlkiyT-GPURntpc3in76GXxh4KfWk3lzFD7h51/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwaLGGu_myYwE_PqDOaRWtAW-RNpoZNMd17fr1-qI1erBW1rBqf2cgDRDRBtBTXfgZJ/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -199,7 +199,7 @@ function doScan(palletId) {
   const pickedUpBy = document.getElementById('pickedUpBy').value.trim();
   const location = document.getElementById('pickupLocation').value;
   if (!pickedUpBy) { showToast('Enter "Picked Up By" name', 'error'); document.getElementById('pickedUpBy').focus(); return; }
-  if (!location) { showToast('Select a pickup location', 'error'); document.getElementById('pickupLocation').focus(); return; }
+  if (!location) { showToast('Search and select a pickup location', 'error'); document.getElementById('pickupLocationSearch').focus(); return; }
 
   pendingScan = { palletId: palletId.trim(), user: pickedUpBy, location: location };
 
@@ -290,15 +290,9 @@ async function loadAwaitingPickup() {
     ]);
     if (!palletsJson.success || !legsJson.success) return;
 
-    // Populate location dropdown
+    // Populate location search data
     if (hubsJson && hubsJson.success) {
-      const select = document.getElementById('pickupLocation');
-      (hubsJson.data || []).forEach(h => {
-        const opt = document.createElement('option');
-        opt.value = h['Name'];
-        opt.textContent = h['Location ID'] + ' — ' + h['Name'];
-        select.appendChild(opt);
-      });
+      window._pickupHubs = (hubsJson.data || []).filter(h => (h['Location Type']||'').toLowerCase() === 'hub');
     }
 
     const legs = legsJson.data || [];
@@ -340,6 +334,45 @@ async function loadAwaitingPickup() {
 }
 
 loadAwaitingPickup();
+
+// Pickup Location search/autocomplete
+function filterPickupLocation() {
+  const query = document.getElementById('pickupLocationSearch').value.toLowerCase().trim();
+  const list = document.getElementById('pickupLocationList');
+  const hubs = window._pickupHubs || [];
+  
+  const filtered = query ? hubs.filter(h => {
+    const id = (h['Location ID']||'').toLowerCase();
+    const name = (h['Name']||'').toLowerCase();
+    return id.includes(query) || name.includes(query);
+  }) : hubs;
+  
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:10px 14px;color:#888;font-size:13px;">No matches</div>';
+  } else {
+    list.innerHTML = filtered.map(h => {
+      const display = (h['Location ID']||'') + ' - ' + (h['Name']||'');
+      return '<div style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'white\'" onclick="selectPickupLocation(\'' + escHtml(h['Name']).replace(/'/g,"\\'") + '\', \'' + escHtml(display).replace(/'/g,"\\'") + '\')">' + escHtml(display) + '</div>';
+    }).join('');
+  }
+  list.style.display = 'block';
+}
+
+function showPickupLocationList() { filterPickupLocation(); }
+
+function selectPickupLocation(value, display) {
+  document.getElementById('pickupLocation').value = value;
+  document.getElementById('pickupLocationSearch').value = display;
+  document.getElementById('pickupLocationList').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const list = document.getElementById('pickupLocationList');
+  const input = document.getElementById('pickupLocationSearch');
+  if (list && input && !list.contains(e.target) && e.target !== input) {
+    list.style.display = 'none';
+  }
+});
 </script>
 </body>
 </html>

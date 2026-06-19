@@ -160,8 +160,8 @@ function doGet(e) {
       if (!hubSheet) return _respond({ success: true, data: [] }, callback);
       var lastRow = hubSheet.getLastRow();
       if (lastRow < 2) return _respond({ success: true, data: [] }, callback);
-      var data = hubSheet.getRange(2, 1, lastRow - 1, 4).getValues();
-      var headers = ['Location ID', 'Name', 'Address', 'Notes'];
+      var data = hubSheet.getRange(2, 1, lastRow - 1, 5).getValues();
+      var headers = ['Location ID', 'Name', 'Address', 'Location Type', 'Notes'];
       var rows = data.map(function(row) {
         var obj = {};
         headers.forEach(function(h, i) { obj[h] = _cellToString(row[i]); });
@@ -177,6 +177,7 @@ function doGet(e) {
       var locId = (e.parameter.locationid || '').toString().trim();
       var name = (e.parameter.name || '').toString().trim();
       var address = (e.parameter.address || '').toString().trim();
+      var locType = (e.parameter.locationtype || 'Hub').toString().trim();
       var notes = (e.parameter.notes || '').toString().trim();
       if (!locId || !name) return _respond({ success: false, error: 'Location ID and Name are required' }, callback);
 
@@ -190,7 +191,7 @@ function doGet(e) {
           }
         }
       }
-      hubSheet.appendRow([locId, name, address, notes]);
+      hubSheet.appendRow([locId, name, address, locType, notes]);
       return _respond({ success: true, locationId: locId }, callback);
     }
 
@@ -203,11 +204,13 @@ function doGet(e) {
       var sheetRow = row + 2;
       var name = (e.parameter.name || '').toString().trim();
       var address = (e.parameter.address || '').toString().trim();
+      var locType = (e.parameter.locationtype || '').toString().trim();
       var notes = (e.parameter.notes || '').toString().trim();
       if (!name) return _respond({ success: false, error: 'Name is required' }, callback);
       hubSheet.getRange(sheetRow, 2).setValue(name);
       hubSheet.getRange(sheetRow, 3).setValue(address);
-      hubSheet.getRange(sheetRow, 4).setValue(notes);
+      if (locType) hubSheet.getRange(sheetRow, 4).setValue(locType);
+      hubSheet.getRange(sheetRow, 5).setValue(notes);
       return _respond({ success: true }, callback);
     }
 
