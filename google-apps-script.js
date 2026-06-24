@@ -107,8 +107,8 @@ function doGet(e) {
     if (action === 'read') {
       var lastRow = palletSheet.getLastRow();
       if (lastRow < 2) return _respond({ success: true, data: [] }, callback);
-      var data = palletSheet.getRange(2, 1, lastRow - 1, 9).getValues();
-      var headers = ['Pallet ID', 'Origin', 'Description', 'Status', 'Opened By', 'Open Date', 'Closed By', 'Close Date', 'Current Location'];
+      var data = palletSheet.getRange(2, 1, lastRow - 1, 10).getValues();
+      var headers = ['Pallet ID', 'Origin', 'Description', 'Status', 'Opened By', 'Open Date', 'Closed By', 'Close Date', 'Current Location', 'Final Destination'];
       var rows = data.map(function(row) {
         var obj = {};
         headers.forEach(function(h, i) { obj[h] = _cellToString(row[i]); });
@@ -121,12 +121,13 @@ function doGet(e) {
     if (action === 'createpallet') {
       var origin = (e.parameter.origin || '').toString().trim();
       var description = (e.parameter.description || '').toString().trim();
+      var finalDest = (e.parameter.finaldest || '').toString().trim();
       if (!origin) return _respond({ success: false, error: 'Origin is required' }, callback);
 
       var palletId = _getNextPalletId(palletSheet);
       var now = new Date();
       var ts = _ts(now);
-      palletSheet.appendRow([palletId, origin, description, 'Open', user, ts, '', '', origin]);
+      palletSheet.appendRow([palletId, origin, description, 'Open', user, ts, '', '', origin, finalDest]);
       _logTransaction(ss, palletId, 'Created', '', origin, user);
       return _respond({ success: true, palletId: palletId, openDate: ts }, callback);
     }
@@ -294,10 +295,12 @@ function doGet(e) {
       var data = legSheet.getRange(2, 1, lastRow - 1, 14).getValues();
       var targetRow = -1;
       var legNum = '';
+      var fromLocation = '';
       for (var i = 0; i < data.length; i++) {
         if (data[i][1].toString().trim() === palletId && data[i][6].toString().trim() === 'Pending') {
           targetRow = i + 2;
           legNum = data[i][2].toString();
+          fromLocation = data[i][3].toString().trim();
           break;
         }
       }
@@ -315,7 +318,7 @@ function doGet(e) {
         palletSheet.getRange(palletIdx + 2, 4).setValue('In Transit');
       }
 
-      _logTransaction(ss, palletId, 'Pickup Scan', legNum, '', user);
+      _logTransaction(ss, palletId, 'Pickup Scan', legNum, fromLocation, user);
       return _respond({ success: true, palletId: palletId, leg: legNum, pickupDate: ts }, callback);
     }
 
@@ -494,6 +497,63 @@ function doGet(e) {
       return _respond({ success: true, palletId: palletId }, callback);
     }
 
+    // ---- REMOVE ROUTING ----
+    if (action === 'removerouting') {
+      var palletId = (e.parameter.palletid || '').toString().trim();
+      if (!palletId) return _respond({ success: false, error: 'Pallet ID is required' }, callback);
+
+      // Delete from Routes tab
+      var routeSheet = ss.getSheetByName('Routes');
+      if (routeSheet && routeSheet.getLastRow() >= 2) {
+        var routeData = routeSheet.getRange(2, 1, routeSheet.getLastRow() - 1, 1).getValues().flat();
+        for (var i = routeData.length - 1; i >= 0; i--) {
+          if (routeData[i].toString().trim() === palletId) {
+            routeSheet.deleteRow(i + 2);
+          }
+        }
+      }
+
+      // Delete from Route Legs tab
+      var legSheet = ss.getSheetByName('Route Legs');
+      if (legSheet && legSheet.getLastRow() >= 2) {
+        var legData = legSheet.getRange(2, 2, legSheet.getLastRow() - 1, 1).getValues().flat();
+        for (var i = legData.length - 1; i >= 0; i--) {
+          if (legData[i].toString().trim() === palletId) {
+            legSheet.deleteRow(i + 2);
+          }
+        }
+      }
+
+      _logTransaction(ss, palletId, 'Route Removed', '', '', user);
+      return _respond({ success: true, palletId: palletId }, callback);
+    }
+
+    // ---- UPDATE PALLET ORIGIN ----
+    if (action === 'updatepalletorigin') {
+      var palletId = (e.parameter.palletid || '').toString().trim();
+      var origin = (e.parameter.origin || '').toString().trim();
+      if (!palletId) return _respond({ success: false, error: 'Pallet ID is required' }, callback);
+      if (!origin) return _respond({ success: false, error: 'Origin is required' }, callback);
+      var idx = _findPallet(palletSheet, palletId);
+      if (idx === -1) return _respond({ success: false, error: 'Pallet not found' }, callback);
+      var row = idx + 2;
+      palletSheet.getRange(row, 2).setValue(origin);
+      palletSheet.getRange(row, 9).setValue(origin); // Update Current Location too
+      return _respond({ success: true }, callback);
+    }
+
+    // ---- UPDATE PALLET FINAL DESTINATION ----
+    if (action === 'updatepalletfinaldest') {
+      var palletId = (e.parameter.palletid || '').toString().trim();
+      var finalDest = (e.parameter.finaldest || '').toString().trim();
+      if (!palletId) return _respond({ success: false, error: 'Pallet ID is required' }, callback);
+      var idx = _findPallet(palletSheet, palletId);
+      if (idx === -1) return _respond({ success: false, error: 'Pallet not found' }, callback);
+      var row = idx + 2;
+      palletSheet.getRange(row, 10).setValue(finalDest);
+      return _respond({ success: true }, callback);
+    }
+
     // ---- TRANSACTION HISTORY ----
     if (action === 'readhistory') {
       var histSheet = ss.getSheetByName('Transaction History');
@@ -580,7 +640,7 @@ function doGet(e) {
       var lastRow = piSheet.getLastRow();
       if (lastRow < 2) return _respond({ success: true, data: [] }, callback);
       var data = piSheet.getRange(2, 1, lastRow - 1, 11).getValues();
-      var headers = ['Record Number', 'Pallet ID', 'Item Code', 'Item Description', 'Item Quantity', 'Item Serial Number', 'Date Added', 'Added By', 'Date Removed', 'Removed By', 'Status'];
+      var headers = ['Record Number', 'Pallet ID', 'MUSE Ticket', 'Description Note', 'Item Quantity', 'Item Serial Number', 'Date Added', 'Added By', 'Date Removed', 'Removed By', 'Status'];
       var palletFilter = (e.parameter.palletid || '').toString().trim();
       var rows = [];
       for (var i = 0; i < data.length; i++) {
@@ -633,6 +693,98 @@ function doGet(e) {
       piSheet.getRange(sheetRow, 9).setValue(ts); // Date Removed
       piSheet.getRange(sheetRow, 10).setValue(user); // Removed By
       piSheet.getRange(sheetRow, 11).setValue('Removed'); // Status
+      return _respond({ success: true }, callback);
+    }
+
+    // ---- READ LINE HAULS ----
+    if (action === 'readlinehauls') {
+      var lhSheet = ss.getSheetByName('Line Hauls');
+      if (!lhSheet) return _respond({ success: true, data: [] }, callback);
+      var lastRow = lhSheet.getLastRow();
+      if (lastRow < 2) return _respond({ success: true, data: [] }, callback);
+      var data = lhSheet.getRange(2, 1, lastRow - 1, 18).getValues();
+      var headers = ['Line ID', 'Name', 'Starting Point', 'Occurrence', 'Stop 1', 'Stop 2', 'Stop 3', 'Stop 4', 'Stop 5', 'Stop 6', 'Stop 7', 'Stop 8', 'Stop 9', 'Stop 10', 'Created By', 'Created On', 'Last Edited', 'Edited By'];
+      var rows = data.map(function(row, idx) {
+        var obj = {};
+        headers.forEach(function(h, i) { obj[h] = _cellToString(row[i]); });
+        obj['_row'] = idx;
+        return obj;
+      });
+      return _respond({ success: true, data: rows }, callback);
+    }
+
+    // ---- ADD LINE HAUL ----
+    if (action === 'addlinehaul') {
+      var lhSheet = ss.getSheetByName('Line Hauls');
+      if (!lhSheet) return _respond({ success: false, error: 'Sheet "Line Hauls" not found' }, callback);
+      var lineId = (e.parameter.lineid || '').toString().trim();
+      var name = (e.parameter.name || '').toString().trim();
+      var startingPoint = (e.parameter.startingpoint || '').toString().trim();
+      var occurrence = (e.parameter.occurrence || '').toString().trim();
+      var stopsJson = (e.parameter.stops || '[]').toString();
+      if (!lineId) return _respond({ success: false, error: 'Line ID is required' }, callback);
+      if (!name) return _respond({ success: false, error: 'Name is required' }, callback);
+      if (!startingPoint) return _respond({ success: false, error: 'Starting Point is required' }, callback);
+
+      // Duplicate check
+      var lastRow = lhSheet.getLastRow();
+      if (lastRow >= 2) {
+        var ids = lhSheet.getRange('A2:A' + lastRow).getValues().flat();
+        for (var i = 0; i < ids.length; i++) {
+          if (ids[i].toString().trim().toUpperCase() === lineId.toUpperCase()) {
+            return _respond({ success: false, error: 'Line ID "' + lineId + '" already exists' }, callback);
+          }
+        }
+      }
+
+      var stops = JSON.parse(stopsJson);
+      var now = new Date();
+      var ts = _ts(now);
+      var rowData = [lineId, name, startingPoint, occurrence];
+      for (var i = 0; i < 10; i++) {
+        rowData.push(stops[i] || '');
+      }
+      rowData.push(user, ts, '', '');
+      lhSheet.appendRow(rowData);
+      return _respond({ success: true, lineId: lineId }, callback);
+    }
+
+    // ---- UPDATE LINE HAUL ----
+    if (action === 'updatelinehaul') {
+      var lhSheet = ss.getSheetByName('Line Hauls');
+      if (!lhSheet) return _respond({ success: false, error: 'Sheet "Line Hauls" not found' }, callback);
+      var row = parseInt(e.parameter.row);
+      if (isNaN(row)) return _respond({ success: false, error: 'Row required' }, callback);
+      var sheetRow = row + 2;
+      var name = (e.parameter.name || '').toString().trim();
+      var startingPoint = (e.parameter.startingpoint || '').toString().trim();
+      var occurrence = (e.parameter.occurrence || '').toString().trim();
+      var stopsJson = (e.parameter.stops || '[]').toString();
+      if (!name) return _respond({ success: false, error: 'Name is required' }, callback);
+      if (!startingPoint) return _respond({ success: false, error: 'Starting Point is required' }, callback);
+
+      var stops = JSON.parse(stopsJson);
+      var now = new Date();
+      var ts = _ts(now);
+      lhSheet.getRange(sheetRow, 2).setValue(name);
+      lhSheet.getRange(sheetRow, 3).setValue(startingPoint);
+      lhSheet.getRange(sheetRow, 4).setValue(occurrence);
+      for (var i = 0; i < 10; i++) {
+        lhSheet.getRange(sheetRow, 5 + i).setValue(stops[i] || '');
+      }
+      lhSheet.getRange(sheetRow, 17).setValue(ts);
+      lhSheet.getRange(sheetRow, 18).setValue(user);
+      return _respond({ success: true }, callback);
+    }
+
+    // ---- DELETE LINE HAUL ----
+    if (action === 'deletelinehaul') {
+      var lhSheet = ss.getSheetByName('Line Hauls');
+      if (!lhSheet) return _respond({ success: false, error: 'Sheet "Line Hauls" not found' }, callback);
+      var row = parseInt(e.parameter.row);
+      if (isNaN(row)) return _respond({ success: false, error: 'Row required' }, callback);
+      var sheetRow = row + 2;
+      lhSheet.deleteRow(sheetRow);
       return _respond({ success: true }, callback);
     }
 

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - Line Hauls</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+</style>
+<style>
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
+    <a href="line-hauls.html" class="active"><span class="icon">🛣️</span> Line Hauls</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')" style="display:none;">☰</button><h1>Line Hauls</h1><div class="header-sub">Define delivery lines and see waiting pallets</div></div>
+    <div class="header-right">
+      <span class="status-dot connected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Ready</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin-bottom:0;border:none;padding:0;">Defined Lines</h2>
+        <button onclick="openCreateModal()" style="padding:8px 18px;background:#1a3a5c;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ New Line</button>
+      </div>
+      <div id="linesTableWrap"><div class="empty-state">Loading...</div></div>
+    </div>
+    <div class="card" id="detailCard" style="display:none;">
+      <h2 id="detailTitle">Line Details</h2>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="lineModal" onclick="if(event.target===this)closeLineModal()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:500;justify-content:center;align-items:center;">
+  <div style="background:white;border-radius:10px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+    <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:18px 24px;border-radius:10px 10px 0 0;">
+      <h3 id="modalTitle" style="font-size:16px;">New Line Haul</h3>
+    </div>
+    <div style="padding:20px 24px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Line ID</label>
+          <input type="text" id="lineIdInput" readonly style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#f8f9fa;color:#1a3a5c;font-weight:600;font-family:Consolas,monospace;cursor:default;">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Name</label>
+          <input type="text" id="lineNameInput" placeholder="e.g. Coastal Route" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Starting Point</label>
+          <select id="startPointSelect" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:white;">
+            <option value="">Select starting hub...</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Occurrence</label>
+          <div id="dayPicker" style="display:flex;gap:6px;margin-top:4px;">
+            <button type="button" class="day-btn" data-day="Mon" onclick="toggleDay(this)">M</button>
+            <button type="button" class="day-btn" data-day="Tue" onclick="toggleDay(this)">T</button>
+            <button type="button" class="day-btn" data-day="Wed" onclick="toggleDay(this)">W</button>
+            <button type="button" class="day-btn" data-day="Thu" onclick="toggleDay(this)">Th</button>
+            <button type="button" class="day-btn" data-day="Fri" onclick="toggleDay(this)">F</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Stops (in order)</label>
+        <div id="stopsContainer"></div>
+        <button onclick="addStopRow()" style="margin-top:8px;padding:6px 14px;background:#e9ecef;color:#333;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">+ Add Stop</button>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid #eee;display:flex;gap:12px;justify-content:flex-end;">
+      <button onclick="closeLineModal()" style="padding:10px 20px;background:#e9ecef;color:#333;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>
+      <button onclick="saveLine()" style="padding:10px 20px;background:#1a3a5c;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:600;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+
+<!-- Confirm Save Modal -->
+<div class="modal-overlay" id="confirmSaveModal" onclick="if(event.target===this)closeConfirmSaveModal()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:600;justify-content:center;align-items:center;">
+  <div style="background:white;border-radius:10px;padding:28px;max-width:420px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.25);text-align:center;">
+    <h3 style="color:#1a3a5c;margin-bottom:16px;font-size:18px;">Confirm Save</h3>
+    <div id="confirmSaveDetails" style="text-align:left;background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;"></div>
+    <div style="text-align:left;margin-bottom:20px;">
+      <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Your Name</label>
+      <input type="text" id="confirmSaveName" placeholder="Enter your name..." style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+    </div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button onclick="closeConfirmSaveModal()" style="padding:10px 24px;background:#e9ecef;color:#333;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>
+      <button onclick="executeConfirmedSave()" style="padding:10px 24px;background:#1a3a5c;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .empty-state { color: #999; font-size: 13px; text-align: center; padding: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
+  table td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  table tr:hover { background: #f8f9fa; }
+  .btn { padding: 6px 14px; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-view { background: #17a2b8; color: white; }
+  .btn-edit { background: #1a3a5c; color: white; margin-left: 6px; }
+  .btn-delete { background: #dc3545; color: white; margin-left: 6px; }
+  .badge-count { display: inline-block; background: #28a745; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+  .badge-count.zero { background: #e9ecef; color: #888; }
+  .stop-badge { display: inline-block; background: #e8f0fe; color: #1a3a5c; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin: 2px 4px 2px 0; }
+  .stop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .stop-row select { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; }
+  .stop-row .stop-num { font-size: 12px; font-weight: 700; color: #1a3a5c; width: 20px; text-align: center; }
+  .stop-row .remove-stop { background: #dc3545; color: white; border: none; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; font-size: 14px; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex !important; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 20px; margin-right: 12px; }
+  }
+  .modal-overlay.show { display: flex !important; }
+  .day-btn { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #ddd; background: white; color: #333; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+  .day-btn:hover { border-color: #1a3a5c; }
+  .day-btn.active { background: #1a3a5c; color: white; border-color: #1a3a5c; }
+</style>
+
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '';
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+
+function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
+
+let _jsonpCounter = 0;
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 3000);
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
+// Data
+let lineHauls = [];
+let hubLocations = [];
+let allLegs = [];
+let editingRow = null;
+
+async function loadData() {
+  document.getElementById('statusDot').className = 'status-dot pending';
+  document.getElementById('statusLabel').textContent = 'Loading...';
+  try {
+    const [lhJson, hubsJson, legsJson] = await Promise.all([
+      jsonpRequest(scriptUrl, { action: 'readlinehauls' }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' }),
+      jsonpRequest(scriptUrl, { action: 'readlegs' })
+    ]);
+    if (lhJson.success) lineHauls = lhJson.data || [];
+    if (hubsJson.success) hubLocations = hubsJson.data || [];
+    if (legsJson.success) allLegs = legsJson.data || [];
+    document.getElementById('statusDot').className = 'status-dot connected';
+    document.getElementById('statusLabel').textContent = 'Ready';
+    renderLinesTable();
+  } catch(err) {
+    document.getElementById('statusDot').className = 'status-dot disconnected';
+    document.getElementById('statusLabel').textContent = 'Error';
+    showToast('Failed to load: ' + err.message, 'error');
+  }
+}
+
+function getStops(line) {
+  const stops = [];
+  for (let i = 1; i <= 10; i++) {
+    const val = (line['Stop ' + i] || '').trim();
+    if (val) stops.push(val);
+  }
+  return stops;
+}
+
+function getWaitingPallets(line) {
+  const startPt = (line['Starting Point'] || '').trim();
+  const stops = getStops(line);
+  if (!startPt || stops.length === 0) return [];
+  // Find legs that are Pending, from startPt to any of the stops (any leg type)
+  return allLegs.filter(l => {
+    const from = (l['From Location'] || '').trim();
+    const to = (l['To Location'] || '').trim();
+    const status = (l['Status'] || '').trim();
+    const fromMatch = matchesLocation(from, startPt);
+    const toMatch = stops.some(s => matchesLocation(to, s));
+    return fromMatch && toMatch && status === 'Pending';
+  });
+}
+
+function matchesLocation(legValue, lineValue) {
+  // legValue is what's in the Route Legs (typically a Name)
+  // lineValue is a Location ID from the Line Hauls sheet
+  if (!legValue || !lineValue) return false;
+  if (legValue.trim().toLowerCase() === lineValue.trim().toLowerCase()) return true;
+  // Look up the hub by Location ID and compare name
+  const hub = hubLocations.find(h => (h['Location ID']||'').trim().toLowerCase() === lineValue.trim().toLowerCase());
+  if (hub && (hub['Name']||'').trim().toLowerCase() === legValue.trim().toLowerCase()) return true;
+  // Also try reverse: legValue might be an ID
+  const hub2 = hubLocations.find(h => (h['Name']||'').trim().toLowerCase() === lineValue.trim().toLowerCase());
+  if (hub2 && (hub2['Location ID']||'').trim().toLowerCase() === legValue.trim().toLowerCase()) return true;
+  return false;
+}
+
+function getNextLineId() {
+  let max = 0;
+  lineHauls.forEach(line => {
+    const id = (line['Line ID'] || '').trim();
+    const match = id.match(/L-?(\d+)/i);
+    if (match) {
+      const num = parseInt(match[1]);
+      if (num > max) max = num;
+    }
+  });
+  const next = max + 1;
+  return 'L-' + ('000' + next).slice(-3);
+}
+
+function getLocationDisplay(locId) {
+  const hub = hubLocations.find(h => (h['Location ID']||'').trim().toLowerCase() === (locId||'').trim().toLowerCase());
+  if (hub) return (hub['Location ID']||'') + ' - ' + (hub['Name']||'');
+  return locId || '—';
+}
+
+function renderLinesTable() {
+  const wrap = document.getElementById('linesTableWrap');
+  if (lineHauls.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No lines defined yet. Click "+ New Line" to create one.</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Line ID</th><th>Name</th><th>Starting Point</th><th>Occurrence</th><th>Stops</th><th style="text-align:center;">Waiting</th><th>Actions</th></tr></thead><tbody>';
+  lineHauls.forEach((line, idx) => {
+    const stops = getStops(line);
+    const waiting = getWaitingPallets(line);
+    const stopsHtml = stops.map(s => '<span class="stop-badge">' + escHtml(s) + '</span>').join('');
+    html += '<tr>';
+    html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(line['Line ID']||'') + '</strong></td>';
+    html += '<td>' + escHtml(line['Name']||'') + '</td>';
+    html += '<td>' + escHtml(getLocationDisplay(line['Starting Point']||'')) + '</td>';
+    html += '<td>' + escHtml(line['Occurrence']||'—') + '</td>';
+    html += '<td>' + (stopsHtml || '—') + '</td>';
+    html += '<td style="text-align:center;"><span class="badge-count ' + (waiting.length === 0 ? 'zero' : '') + '">' + waiting.length + '</span></td>';
+    html += '<td>';
+    html += '<button class="btn btn-view" onclick="viewLine(' + idx + ')">View</button>';
+    html += '<button class="btn btn-edit" onclick="openEditModal(' + idx + ')">Edit</button>';
+    html += '<button class="btn btn-delete" onclick="deleteLine(' + idx + ')">Delete</button>';
+    html += '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function viewLine(idx) {
+  const line = lineHauls[idx];
+  if (!line) return;
+  const stops = getStops(line);
+  const waiting = getWaitingPallets(line);
+  const card = document.getElementById('detailCard');
+  card.style.display = 'block';
+  document.getElementById('detailTitle').textContent = (line['Line ID']||'') + ' — ' + (line['Name']||'');
+
+  let html = '<div style="margin-bottom:16px;padding:12px 16px;background:#f8f9fa;border-radius:8px;">';
+  html += '<div style="font-size:12px;color:#666;text-transform:uppercase;font-weight:600;margin-bottom:8px;">Route</div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+  html += '<span style="font-weight:700;color:#1a3a5c;">' + escHtml(getLocationDisplay(line['Starting Point']||'')) + '</span>';
+  stops.forEach(s => {
+    html += '<span style="color:#888;">→</span>';
+    html += '<span style="font-weight:600;">' + escHtml(getLocationDisplay(s)) + '</span>';
+  });
+  html += '</div></div>';
+
+  if (waiting.length === 0) {
+    html += '<div class="empty-state">No pallets currently waiting for this line</div>';
+  } else {
+    html += '<div style="font-size:13px;font-weight:600;color:#1a3a5c;margin-bottom:8px;">' + waiting.length + ' pallet(s) waiting for pickup:</div>';
+    // Group by stop
+    const byStop = {};
+    stops.forEach(s => { byStop[s] = []; });
+    waiting.forEach(leg => {
+      const to = (leg['To Location']||'').trim();
+      const matchedStop = stops.find(s => matchesLocation(to, s));
+      if (matchedStop) byStop[matchedStop].push(leg);
+    });
+
+    stops.forEach((stop, sIdx) => {
+      const pallets = byStop[stop] || [];
+      if (pallets.length === 0) return;
+      html += '<div style="margin-top:12px;margin-bottom:4px;font-size:12px;font-weight:700;color:#1a3a5c;text-transform:uppercase;">Stop ' + (sIdx+1) + ': ' + escHtml(getLocationDisplay(stop)) + ' (' + pallets.length + ')</div>';
+      html += '<table><thead><tr><th>Pallet ID</th><th>Tracking #</th><th>From</th><th>To</th></tr></thead><tbody>';
+      pallets.forEach(l => {
+        html += '<tr>';
+        html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(l['Pallet ID']||'') + '</strong></td>';
+        html += '<td style="font-family:Consolas,monospace;font-size:12px;">' + escHtml(l['Tracking Number']||'') + '</td>';
+        html += '<td>' + escHtml(l['From Location']||'') + '</td>';
+        html += '<td>' + escHtml(l['To Location']||'') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    });
+  }
+
+  document.getElementById('detailContent').innerHTML = html;
+  card.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Modal functions
+function toggleDay(btn) {
+  btn.classList.toggle('active');
+}
+
+function setDayPicker(value) {
+  const days = (value || '').split(',').map(d => d.trim());
+  document.querySelectorAll('#dayPicker .day-btn').forEach(btn => {
+    btn.classList.toggle('active', days.includes(btn.dataset.day));
+  });
+}
+
+function getDayPickerValue() {
+  const selected = [];
+  document.querySelectorAll('#dayPicker .day-btn.active').forEach(btn => {
+    selected.push(btn.dataset.day);
+  });
+  return selected.join(',');
+}
+
+function populateLocationDropdowns() {
+  const hubs = hubLocations.filter(h => (h['Location Type']||'').toLowerCase() === 'hub');
+  const finals = hubLocations.filter(h => (h['Location Type']||'').toLowerCase() === 'final location');
+  const all = hubLocations;
+
+  // Starting point dropdown (hubs only)
+  const startSel = document.getElementById('startPointSelect');
+  startSel.innerHTML = '<option value="">Select starting hub...</option>';
+  hubs.forEach(h => {
+    startSel.innerHTML += '<option value="' + escHtml(h['Location ID']||'') + '">' + escHtml((h['Location ID']||'') + ' - ' + (h['Name']||'')) + '</option>';
+  });
+
+  // Rebuild stop selects
+  rebuildStopOptions();
+}
+
+function getStopOptions() {
+  let opts = '<option value="">Select location...</option>';
+  hubLocations.forEach(h => {
+    const type = (h['Location Type']||'').toLowerCase();
+    const typeLabel = type === 'hub' ? ' [Hub]' : ' [Final]';
+    opts += '<option value="' + escHtml(h['Location ID']||'') + '">' + escHtml((h['Location ID']||'') + ' - ' + (h['Name']||'') + typeLabel) + '</option>';
+  });
+  return opts;
+}
+
+function rebuildStopOptions() {
+  const opts = getStopOptions();
+  document.querySelectorAll('.stop-select').forEach(sel => {
+    const val = sel.value;
+    sel.innerHTML = opts;
+    sel.value = val;
+  });
+}
+
+function addStopRow(value) {
+  const container = document.getElementById('stopsContainer');
+  const num = container.children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'stop-row';
+  div.innerHTML = '<span class="stop-num">' + num + '</span><select class="stop-select">' + getStopOptions() + '</select><button type="button" class="remove-stop" onclick="removeStopRow(this)">✕</button>';
+  container.appendChild(div);
+  if (value) div.querySelector('select').value = value;
+  renumberStops();
+}
+
+function removeStopRow(btn) {
+  btn.closest('.stop-row').remove();
+  renumberStops();
+}
+
+function renumberStops() {
+  document.querySelectorAll('#stopsContainer .stop-row').forEach((row, i) => {
+    row.querySelector('.stop-num').textContent = i + 1;
+  });
+}
+
+function openCreateModal() {
+  editingRow = null;
+  document.getElementById('modalTitle').textContent = 'New Line Haul';
+  document.getElementById('lineIdInput').value = getNextLineId();
+  document.getElementById('lineNameInput').value = '';
+  document.getElementById('startPointSelect').value = '';
+  setDayPicker('');
+  document.getElementById('stopsContainer').innerHTML = '';
+  populateLocationDropdowns();
+  addStopRow();
+  document.getElementById('lineModal').classList.add('show');
+}
+
+function openEditModal(idx) {
+  const line = lineHauls[idx];
+  if (!line) return;
+  editingRow = line['_row'];
+  document.getElementById('modalTitle').textContent = 'Edit Line Haul';
+  document.getElementById('lineIdInput').value = line['Line ID'] || '';
+  document.getElementById('lineNameInput').value = line['Name'] || '';
+  setDayPicker(line['Occurrence'] || '');
+  populateLocationDropdowns();
+  document.getElementById('startPointSelect').value = line['Starting Point'] || '';
+  document.getElementById('stopsContainer').innerHTML = '';
+  const stops = getStops(line);
+  if (stops.length === 0) { addStopRow(); } else { stops.forEach(s => addStopRow(s)); }
+  document.getElementById('lineModal').classList.add('show');
+}
+
+function closeLineModal() {
+  document.getElementById('lineModal').classList.remove('show');
+  editingRow = null;
+}
+
+let pendingSaveParams = null;
+
+async function saveLine() {
+  const lineId = document.getElementById('lineIdInput').value.trim();
+  const name = document.getElementById('lineNameInput').value.trim();
+  const startPt = document.getElementById('startPointSelect').value.trim();
+  const occurrence = getDayPickerValue();
+  const stopSelects = document.querySelectorAll('#stopsContainer .stop-select');
+  const stops = [];
+  stopSelects.forEach(sel => { if (sel.value) stops.push(sel.value); });
+
+  if (!lineId) { showToast('Line ID is required', 'error'); return; }
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!startPt) { showToast('Starting Point is required', 'error'); return; }
+  if (stops.length === 0) { showToast('At least one stop is required', 'error'); return; }
+
+  pendingSaveParams = {
+    action: editingRow !== null ? 'updatelinehaul' : 'addlinehaul',
+    lineid: lineId,
+    name: name,
+    startingpoint: startPt,
+    occurrence: occurrence,
+    stops: JSON.stringify(stops)
+  };
+  if (editingRow !== null) pendingSaveParams.row = editingRow;
+
+  // Build summary for confirm modal
+  const startDisplay = getLocationDisplay(startPt);
+  const stopsDisplay = stops.map(s => getLocationDisplay(s)).join(' → ');
+  const daysDisplay = occurrence ? occurrence.split(',').join(', ') : 'None selected';
+  const summaryHtml = '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Line ID</span><br><strong style="font-family:Consolas,monospace;">' + escHtml(lineId) + '</strong></div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Name</span><br><strong>' + escHtml(name) + '</strong></div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Starting Point</span><br><strong>' + escHtml(startDisplay) + '</strong></div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Days</span><br><strong>' + escHtml(daysDisplay) + '</strong></div>' +
+    '<div><span style="color:#888;font-size:11px;text-transform:uppercase;">Stops</span><br><strong>' + escHtml(stopsDisplay) + '</strong></div>';
+
+  document.getElementById('confirmSaveDetails').innerHTML = summaryHtml;
+  document.getElementById('confirmSaveName').value = getUser();
+  document.getElementById('confirmSaveModal').classList.add('show');
+}
+
+function closeConfirmSaveModal() {
+  document.getElementById('confirmSaveModal').classList.remove('show');
+  pendingSaveParams = null;
+}
+
+async function executeConfirmedSave() {
+  if (!pendingSaveParams) return;
+  const userName = document.getElementById('confirmSaveName').value.trim();
+  if (!userName) { showToast('Enter your name to confirm', 'error'); document.getElementById('confirmSaveName').focus(); return; }
+
+  pendingSaveParams.user = userName;
+  document.getElementById('confirmSaveModal').classList.remove('show');
+  closeLineModal();
+
+  try {
+    const json = await jsonpRequest(scriptUrl, pendingSaveParams);
+    if (json.success) {
+      showToast(pendingSaveParams.action === 'updatelinehaul' ? 'Line updated' : 'Line created', 'success');
+      loadData();
+    } else {
+      showToast(json.error || 'Failed', 'error');
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+  pendingSaveParams = null;
+}
+
+async function deleteLine(idx) {
+  const line = lineHauls[idx];
+  if (!line) return;
+  if (!confirm('Delete line "' + (line['Line ID']||'') + ' - ' + (line['Name']||'') + '"?')) return;
+  try {
+    const json = await jsonpRequest(scriptUrl, { action: 'deletelinehaul', row: line['_row'] });
+    if (json.success) {
+      showToast('Line deleted', 'success');
+      document.getElementById('detailCard').style.display = 'none';
+      loadData();
+    } else {
+      showToast(json.error || 'Failed', 'error');
+    }
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// Init
+if (scriptUrl) { loadData(); } else {
+  document.getElementById('linesTableWrap').innerHTML = '<div class="empty-state">No script URL configured — go to Settings</div>';
+}
+</script>
+</body>
+</html>

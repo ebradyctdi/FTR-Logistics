@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Shipping - MUSE Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a3a5c; color: white; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-brand .sub { font-size: 13px; opacity: 0.9; margin-top: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+  .sidebar-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: #20c997; }
+  .sidebar-nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-nav .nav-section { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 16px 16px 6px; letter-spacing: 1px; }
+  .main-wrap { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot.connected { background: #28a745; }
+  .status-dot.disconnected { background: #dc3545; }
+  .status-dot.pending { background: #fd7e14; }
+  .status-label { font-size: 11px; color: rgba(255,255,255,0.8); margin-left: 4px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 16px; color: #1a3a5c; margin-bottom: 16px; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Views</div>
+    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
+    <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <a href="muse-tracker.html" class="active"><span class="icon">🎫</span> MUSE Tracker</a>
+    <div class="nav-section">Pallet Build</div>
+    <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
+    <div class="nav-section">Logistics</div>
+    <a href="routing.html"><span class="icon">🗺️</span> Routing</a>
+    <a href="packing-documents.html"><span class="icon">📄</span> Packing Documents</a>
+    <a href="pickup-scan.html"><span class="icon">🚚</span> Pickup Scan</a>
+    <a href="dropoff-scan.html"><span class="icon">📍</span> Dropoff Scan</a>
+    <a href="receipt-scan.html"><span class="icon">✅</span> Hub Receipt Scan</a>
+    <div class="nav-section">Exceptions</div>
+    <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
+    <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
+    <div class="nav-section">System</div>
+    <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
+    <a href="line-hauls.html"><span class="icon">🛣️</span> Line Hauls</a>
+  </div>
+</nav>
+<div class="main-wrap">
+  <div class="header">
+    <div><button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')" style="display:none;">☰</button><h1>MUSE Tracker</h1><div class="header-sub">Track MUSE tickets across pallets</div></div>
+    <div class="header-right">
+      <span class="status-dot connected" id="statusDot"></span>
+      <span class="status-label" id="statusLabel">Ready</span>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Active MUSE Tickets</h2>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="text" id="museFilter" placeholder="Search by MUSE Ticket #..." oninput="renderMuseTables()" autocomplete="off" style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
+        <select id="museStatusFilter" onchange="renderMuseTables()" style="padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:white;">
+          <option value="">All Active</option>
+          <option value="Open">Open</option>
+          <option value="Closed">Closed</option>
+          <option value="In Transit">In Transit</option>
+          <option value="At Hub">At Hub</option>
+        </select>
+        <span id="museActiveCount" style="font-size:12px;color:#888;white-space:nowrap;"></span>
+      </div>
+      <div id="museActiveTableWrap"><div style="color:#999;font-size:13px;text-align:center;padding:20px;">Loading...</div></div>
+    </div>
+    <div class="card">
+      <h2>Delivered MUSE Tickets</h2>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+        <input type="text" id="museDeliveredFilter" placeholder="Search by MUSE Ticket #..." oninput="renderMuseTables()" autocomplete="off" style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
+        <span id="museDeliveredCount" style="font-size:12px;color:#888;white-space:nowrap;"></span>
+      </div>
+      <div id="museDeliveredTableWrap"><div style="color:#999;font-size:13px;text-align:center;padding:20px;">Loading...</div></div>
+    </div>
+    <div class="card" id="museDetailCard" style="display:none;">
+      <h2 id="museDetailTitle">MUSE Ticket Details</h2>
+      <div id="museDetailContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MUSE Detail Modal -->
+<div class="modal-overlay" id="museModal" onclick="if(event.target===this)closeMuseModal()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:500;justify-content:center;align-items:center;">
+  <div style="background:white;border-radius:10px;width:700px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+    <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:18px 24px;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">
+      <div>
+        <h3 id="museModalTitle" style="font-size:16px;margin:0;">MUSE Ticket</h3>
+        <div id="museModalSub" style="font-size:12px;opacity:0.8;margin-top:2px;"></div>
+      </div>
+      <button onclick="closeMuseModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+    <div id="museModalContent" style="padding:20px 24px;"></div>
+    <div style="padding:16px 24px;border-top:1px solid #eee;text-align:right;">
+      <button onclick="closeMuseModal()" style="padding:10px 24px;background:#e9ecef;color:#333;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { background: #f8f9fa; color: #1a3a5c; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; }
+  table td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  table tr:hover { background: #f8f9fa; cursor: pointer; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.3s; z-index: 300; }
+    .sidebar.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .hamburger { display: flex !important; }
+  }
+  .modal-overlay.show { display: flex !important; }
+  .timeline { list-style: none; padding: 0; margin: 0; }
+  .timeline li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  .timeline li:last-child { border-bottom: none; }
+  .timeline .tl-dot { width: 8px; height: 8px; border-radius: 50%; background: #1a3a5c; margin-top: 4px; flex-shrink: 0; }
+  .timeline .tl-content { flex: 1; }
+  .timeline .tl-action { font-weight: 600; color: #1a3a5c; }
+  .timeline .tl-meta { color: #888; font-size: 11px; margin-top: 2px; }
+</style>
+<div id="toast" style="position:fixed;top:80px;right:30px;padding:14px 24px;border-radius:6px;color:white;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:400;transform:translateX(120%);transition:transform 0.3s ease;"></div>
+<script>
+const URL_KEY = 'fs_script_url';
+let scriptUrl = '';
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+
+let _jsonpCounter = 0;
+function jsonpRequest(url, params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_jsonpCb_' + (++_jsonpCounter) + '_' + Date.now();
+    const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const sep = url.includes('?') ? '&' : '?';
+    const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(data) { cleanup(); resolve(data); };
+    const s = document.createElement('script');
+    s.src = fullUrl; s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    document.head.appendChild(s);
+  });
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.style.background = type==='success'?'#28a745':type==='error'?'#dc3545':'#fd7e14';
+  t.style.transform = 'translateX(0)';
+  setTimeout(() => { t.style.transform = 'translateX(120%)'; }, 3000);
+}
+
+let allItems = [];
+let allPallets = [];
+let allHubLocations = [];
+let museTickets = []; // grouped data
+
+async function loadData() {
+  document.getElementById('statusDot').className = 'status-dot pending';
+  document.getElementById('statusLabel').textContent = 'Loading...';
+  try {
+    const [itemsJson, palletsJson, hubsJson] = await Promise.all([
+      jsonpRequest(scriptUrl, { action: 'readpalletitems' }),
+      jsonpRequest(scriptUrl, { action: 'read' }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' })
+    ]);
+    if (itemsJson.success) allItems = itemsJson.data || [];
+    if (palletsJson.success) allPallets = palletsJson.data || [];
+    if (hubsJson && hubsJson.success) allHubLocations = hubsJson.data || [];
+    buildMuseTickets();
+    document.getElementById('statusDot').className = 'status-dot connected';
+    document.getElementById('statusLabel').textContent = 'Ready';
+    renderMuseTables();
+  } catch(err) {
+    document.getElementById('statusDot').className = 'status-dot disconnected';
+    document.getElementById('statusLabel').textContent = 'Error';
+    showToast('Failed to load: ' + err.message, 'error');
+  }
+}
+
+function buildMuseTickets() {
+  // Group items by MUSE Ticket #
+  const map = {};
+  allItems.filter(i => (i['Status']||'').toLowerCase() === 'on pallet' && (i['MUSE Ticket']||'').trim()).forEach(item => {
+    const ticket = (item['MUSE Ticket']||'').trim();
+    if (!map[ticket]) map[ticket] = { ticket: ticket, pallets: [] };
+    const pid = (item['Pallet ID']||'').trim();
+    if (!map[ticket].pallets.find(p => p.palletId === pid)) {
+      const pallet = allPallets.find(p => (p['Pallet ID']||'').trim() === pid);
+      map[ticket].pallets.push({
+        palletId: pid,
+        status: pallet ? (pallet['Status']||'—') : '—',
+        origin: pallet ? (pallet['Origin']||'—') : '—',
+        currentLocation: pallet ? (pallet['Current Location']||'—') : '—',
+        finalDest: pallet ? (pallet['Final Destination']||'—') : '—'
+      });
+    }
+  });
+  museTickets = Object.values(map);
+  museTickets.sort((a, b) => a.ticket.localeCompare(b.ticket));
+}
+
+function getOverallStatus(pallets) {
+  if (pallets.every(p => p.status === 'Delivered')) return 'Delivered';
+  if (pallets.some(p => p.status === 'In Transit')) return 'In Transit';
+  if (pallets.some(p => p.status === 'At Hub')) return 'At Hub';
+  if (pallets.some(p => p.status === 'Closed')) return 'Closed';
+  if (pallets.some(p => p.status === 'Open')) return 'Open';
+  return pallets[0] ? pallets[0].status : '—';
+}
+
+function getStatusBadge(status) {
+  const colors = { 'Open':'#0d6efd', 'Closed':'#6c757d', 'In Transit':'#fd7e14', 'At Hub':'#6f42c1', 'Delivered':'#28a745', 'On Hold':'#dc3545' };
+  const color = colors[status] || '#888';
+  return '<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + color + '20;color:' + color + ';">' + escHtml(status) + '</span>';
+}
+
+function renderMuseTables() {
+  const filter = (document.getElementById('museFilter').value || '').trim().toLowerCase();
+  const statusFilter = document.getElementById('museStatusFilter').value;
+  const deliveredFilter = (document.getElementById('museDeliveredFilter').value || '').trim().toLowerCase();
+
+  // Split into active (not all delivered) and delivered (all delivered)
+  const activeTickets = museTickets.filter(m => getOverallStatus(m.pallets) !== 'Delivered');
+  const deliveredTickets = museTickets.filter(m => getOverallStatus(m.pallets) === 'Delivered');
+
+  // Filter active
+  let filteredActive = activeTickets;
+  if (filter) filteredActive = filteredActive.filter(m => m.ticket.toLowerCase().includes(filter));
+  if (statusFilter) filteredActive = filteredActive.filter(m => getOverallStatus(m.pallets) === statusFilter);
+
+  // Filter delivered
+  let filteredDelivered = deliveredTickets;
+  if (deliveredFilter) filteredDelivered = filteredDelivered.filter(m => m.ticket.toLowerCase().includes(deliveredFilter));
+
+  // Render active
+  document.getElementById('museActiveCount').textContent = filteredActive.length + ' ticket' + (filteredActive.length !== 1 ? 's' : '');
+  const activeWrap = document.getElementById('museActiveTableWrap');
+  if (filteredActive.length === 0) {
+    activeWrap.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">No active MUSE tickets found</div>';
+  } else {
+    let html = '<table><thead><tr><th>MUSE Ticket #</th><th style="text-align:center;">Pallets</th><th>Overall Status</th><th>Pallet IDs</th></tr></thead><tbody>';
+    filteredActive.forEach(m => {
+      const overall = getOverallStatus(m.pallets);
+      const palletIds = m.pallets.map(p => p.palletId).join(', ');
+      html += '<tr onclick="showMuseDetail(\'' + escHtml(m.ticket).replace(/'/g, "\\'") + '\')">';
+      html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(m.ticket) + '</strong></td>';
+      html += '<td style="text-align:center;">' + m.pallets.length + '</td>';
+      html += '<td>' + getStatusBadge(overall) + '</td>';
+      html += '<td style="font-family:Consolas,monospace;font-size:12px;">' + escHtml(palletIds) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    activeWrap.innerHTML = html;
+  }
+
+  // Render delivered
+  document.getElementById('museDeliveredCount').textContent = filteredDelivered.length + ' ticket' + (filteredDelivered.length !== 1 ? 's' : '');
+  const deliveredWrap = document.getElementById('museDeliveredTableWrap');
+  if (filteredDelivered.length === 0) {
+    deliveredWrap.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">No delivered MUSE tickets found</div>';
+  } else {
+    let html = '<table><thead><tr><th>MUSE Ticket #</th><th style="text-align:center;">Pallets</th><th>Status</th><th>Pallet IDs</th></tr></thead><tbody>';
+    filteredDelivered.forEach(m => {
+      const palletIds = m.pallets.map(p => p.palletId).join(', ');
+      html += '<tr onclick="showMuseDetail(\'' + escHtml(m.ticket).replace(/'/g, "\\'") + '\')">';
+      html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(m.ticket) + '</strong></td>';
+      html += '<td style="text-align:center;">' + m.pallets.length + '</td>';
+      html += '<td>' + getStatusBadge('Delivered') + '</td>';
+      html += '<td style="font-family:Consolas,monospace;font-size:12px;">' + escHtml(palletIds) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    deliveredWrap.innerHTML = html;
+  }
+}
+
+function showMuseDetail(ticket) {
+  const muse = museTickets.find(m => m.ticket === ticket);
+  if (!muse) return;
+
+  function getLocAddr(name) {
+    if (!name || name === '—') return '';
+    const n = name.trim().toLowerCase();
+    let hub = allHubLocations.find(h => (h['Name']||'').trim().toLowerCase() === n);
+    if (!hub) hub = allHubLocations.find(h => (h['Name']||'').toLowerCase().includes(n) || n.includes((h['Name']||'').toLowerCase()));
+    return hub ? (hub['Address']||'') : '';
+  }
+
+  document.getElementById('museModalTitle').textContent = 'MUSE Ticket: ' + ticket;
+  document.getElementById('museModalSub').textContent = muse.pallets.length + ' pallet' + (muse.pallets.length !== 1 ? 's' : '');
+  document.getElementById('museModalContent').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">Loading history...</div>';
+  document.getElementById('museModal').classList.add('show');
+
+  // Fetch history for all associated pallets
+  Promise.all(muse.pallets.map(p => jsonpRequest(scriptUrl, { action: 'pallethistory', palletid: p.palletId }))).then(results => {
+    let html = '';
+    muse.pallets.forEach((p, idx) => {
+      const statusBadge = getStatusBadge(p.status);
+      let fdDisplay = p.finalDest || '—';
+      let fdAddr = '';
+      if (fdDisplay.includes('|')) {
+        fdAddr = fdDisplay.split('|')[1] ? fdDisplay.split('|')[1].trim() : '';
+        fdDisplay = fdDisplay.split('|')[0].trim();
+      } else {
+        fdAddr = getLocAddr(fdDisplay);
+      }
+      const originAddr = getLocAddr(p.origin);
+      const currentAddr = getLocAddr(p.currentLocation);
+
+      html += '<div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+      html += '<strong style="font-family:Consolas,monospace;font-size:16px;color:#1a3a5c;">' + escHtml(p.palletId) + '</strong>';
+      html += statusBadge;
+      html += '</div>';
+
+      // Info row with addresses
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:12px;">';
+      html += '<div><span style="color:#888;text-transform:uppercase;font-size:10px;display:block;">Origin</span><strong>' + escHtml(p.origin) + '</strong>' + (originAddr ? '<br><span style="color:#555;font-size:11px;">' + escHtml(originAddr) + '</span>' : '') + '</div>';
+      html += '<div><span style="color:#888;text-transform:uppercase;font-size:10px;display:block;">Current Location</span><strong>' + escHtml(p.currentLocation) + '</strong>' + (currentAddr ? '<br><span style="color:#555;font-size:11px;">' + escHtml(currentAddr) + '</span>' : '') + '</div>';
+      html += '<div><span style="color:#888;text-transform:uppercase;font-size:10px;display:block;">Final Destination</span><strong>' + escHtml(fdDisplay) + '</strong>' + (fdAddr ? '<br><span style="color:#555;font-size:11px;">' + escHtml(fdAddr) + '</span>' : '') + '</div>';
+      html += '</div>';
+
+      // Timeline
+      const history = (results[idx] && results[idx].success) ? (results[idx].data || []) : [];
+      if (history.length > 0) {
+        html += '<div style="font-size:11px;font-weight:600;color:#666;text-transform:uppercase;margin-bottom:6px;">Timeline</div>';
+        html += '<ul class="timeline">';
+        history.forEach(h => {
+          const ts = fmtDate(h['Timestamp']||'');
+          const action = h['Action'] || '';
+          const loc = h['Location'] || '';
+          const usr = h['User'] || '';
+          const legNum = h['Leg #'] || h['Leg'] || '';
+          html += '<li><div class="tl-dot"></div><div class="tl-content"><div class="tl-action">' + escHtml(action) + (legNum ? ' (Leg ' + escHtml(legNum) + ')' : '') + '</div>';
+          html += '<div class="tl-meta">' + escHtml(ts) + (loc ? ' • ' + escHtml(loc) : '') + (usr ? ' • by ' + escHtml(usr) : '') + '</div>';
+          html += '</div></li>';
+        });
+        html += '</ul>';
+      } else {
+        html += '<div style="font-size:12px;color:#888;">No history available</div>';
+      }
+      html += '</div>';
+    });
+
+    document.getElementById('museModalContent').innerHTML = html;
+  }).catch(err => {
+    document.getElementById('museModalContent').innerHTML = '<div style="color:#dc3545;text-align:center;padding:20px;">Failed to load history</div>';
+  });
+}
+
+function closeMuseModal() {
+  document.getElementById('museModal').classList.remove('show');
+}
+
+function fmtDate(str) {
+  if (!str) return '—';
+  const s = str.toString().trim();
+  if (!s) return '—';
+  const m = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if (m) {
+    const month = m[1], day = m[2], yr = m[3], hr = parseInt(m[4]), min = m[5];
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return month + '/' + day + '/' + yr + ', ' + h12 + ':' + min + ' ' + ampm;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const mo = d.getMonth() + 1, dy = d.getDate(), yr = d.getFullYear();
+    let hr = d.getHours(); const min = ('0' + d.getMinutes()).slice(-2);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    hr = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return mo + '/' + dy + '/' + yr + ', ' + hr + ':' + min + ' ' + ampm;
+  }
+  return s;
+}
+
+// Init
+if (scriptUrl) { loadData(); } else {
+  document.getElementById('museTableWrap').innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">No script URL configured — go to Settings</div>';
+}
+</script>
+</body>
+</html>

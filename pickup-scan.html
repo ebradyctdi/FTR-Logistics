@@ -69,6 +69,7 @@
     <div class="nav-section">Views</div>
     <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
     <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
     <div class="nav-section">Logistics</div>
@@ -81,8 +82,9 @@
     <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
     <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
     <div class="nav-section">System</div>
-    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
     <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
+    <a href="line-hauls.html"><span class="icon">🛣️</span> Line Hauls</a>
   </div>
 </nav>
 <div class="main-wrap">
@@ -96,18 +98,6 @@
   <div class="container">
     <div class="scan-card">
       <h2>🚚 Scan Pallet for Pickup</h2>
-      <div style="display:flex;gap:12px;max-width:480px;margin:0 auto 16px;text-align:left;">
-        <div style="flex:1;">
-          <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Picked Up By</label>
-          <input type="text" id="pickedUpBy" placeholder="Your name..." style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;" autocomplete="off">
-        </div>
-        <div style="flex:1;position:relative;">
-          <label style="display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;">Location</label>
-          <input type="text" id="pickupLocationSearch" placeholder="Type to search hubs..." autocomplete="off" oninput="filterPickupLocation()" onfocus="showPickupLocationList()" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
-          <input type="hidden" id="pickupLocation" value="">
-          <div id="pickupLocationList" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-        </div>
-      </div>
       <input type="text" class="scan-input" id="scanInput" placeholder="Scan Pallet ID..." autofocus autocomplete="off" spellcheck="false">
       <div class="scan-hint">Scan barcode or type pallet ID and press Enter</div>
     </div>
@@ -137,7 +127,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwaLGGu_myYwE_PqDOaRWtAW-RNpoZNMd17fr1-qI1erBW1rBqf2cgDRDRBtBTXfgZJ/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -196,32 +186,52 @@ function doScan(palletId) {
   if (!palletId.trim()) return;
   if (!scriptUrl) { showToast('No script URL configured — go to Settings', 'error'); return; }
 
-  const pickedUpBy = document.getElementById('pickedUpBy').value.trim();
-  const location = document.getElementById('pickupLocation').value;
-  if (!pickedUpBy) { showToast('Enter "Picked Up By" name', 'error'); document.getElementById('pickedUpBy').focus(); return; }
-  if (!location) { showToast('Search and select a pickup location', 'error'); document.getElementById('pickupLocationSearch').focus(); return; }
+  // Check if pallet is in the awaiting pickup list
+  const match = awaitingRows.find(r => r.palletId === palletId.trim());
+  if (!match) {
+    showToast(palletId.trim() + ' is not awaiting pickup', 'error');
+    document.getElementById('scanInput').value = '';
+    document.getElementById('scanInput').focus();
+    return;
+  }
 
-  pendingScan = { palletId: palletId.trim(), user: pickedUpBy, location: location };
+  const defaultUser = getUser();
+  pendingScan = { palletId: palletId.trim(), user: defaultUser };
 
   // Find destination from awaiting pickup data
   let destination = '—';
+  let currentLocation = '—';
   let legType = '';
   if (typeof awaitingRows !== 'undefined' && awaitingRows.length > 0) {
     const match = awaitingRows.find(r => r.palletId === palletId.trim());
-    if (match) { destination = match.destination; legType = match.legType; }
+    if (match) { destination = match.destination; currentLocation = match.currentLocation; legType = match.legType; }
   }
 
+  // Look up addresses
+  function getLocAddress(name) {
+    if (!name || name === '—') return '';
+    const locs = window._allLocations || [];
+    const n = name.trim().toLowerCase();
+    let loc = locs.find(h => (h['Name']||'').trim().toLowerCase() === n);
+    if (!loc) loc = locs.find(h => (h['Name']||'').toLowerCase().includes(n) || n.includes((h['Name']||'').toLowerCase()));
+    return loc ? (loc['Address']||'') : '';
+  }
+  const pickupAddr = getLocAddress(currentLocation);
+  const destAddr = getLocAddress(destination);
+
   const detailsHtml = '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pallet ID</span><br><strong style="font-size:16px;font-family:Consolas,monospace;">' + escHtml(palletId.trim()) + '</strong></div>' +
-    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Picked Up By</span><br><strong>' + escHtml(pickedUpBy) + '</strong></div>' +
-    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pickup Location</span><br><strong>' + escHtml(location) + '</strong></div>' +
-    '<div style="margin-bottom:8px;border-top:1px solid #eee;padding-top:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Destination</span><br><strong style="color:#1a3a5c;">' + escHtml(destination) + '</strong>' + (legType ? ' <span style="font-size:11px;color:#888;">(' + escHtml(legType) + ')</span>' : '') + '</div>';
+    '<div style="margin-bottom:8px;border-top:1px solid #eee;padding-top:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pickup Location</span><br><strong style="color:#1a3a5c;">' + escHtml(currentLocation) + '</strong>' + (pickupAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(pickupAddr) + '</span>' : '') + '</div>' +
+    '<div style="margin-bottom:8px;border-top:1px solid #eee;padding-top:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Destination</span><br><strong style="color:#1a3a5c;">' + escHtml(destination) + '</strong>' + (legType ? ' <span style="font-size:11px;color:#888;">(' + escHtml(legType) + ')</span>' : '') + (destAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(destAddr) + '</span>' : '') + '</div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Picked Up By</span><br><input type="text" id="pickedUpByInput" value="' + escHtml(defaultUser) + '" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-weight:600;margin-top:4px;"></div>';
   document.getElementById('confirmDetails').innerHTML = detailsHtml;
   document.getElementById('confirmModal').classList.add('show');
 }
 
 async function executeConfirmedScan() {
   if (!pendingScan) return;
-  const { palletId, user } = pendingScan;
+  const { palletId } = pendingScan;
+  const user = document.getElementById('pickedUpByInput').value.trim() || pendingScan.user;
+  if (!user) { showToast('Enter "Picked Up By" name', 'error'); document.getElementById('pickedUpByInput').focus(); return; }
   document.getElementById('confirmModal').classList.remove('show');
 
   document.getElementById('statusDot').className = 'status-dot pending';
@@ -293,27 +303,40 @@ async function loadAwaitingPickup() {
     // Populate location search data
     if (hubsJson && hubsJson.success) {
       window._pickupHubs = (hubsJson.data || []).filter(h => (h['Location Type']||'').toLowerCase() === 'hub');
+      window._allLocations = hubsJson.data || [];
     }
 
     const legs = legsJson.data || [];
-    // Find pallets with a Pending leg (awaiting pickup)
-    const pendingLegs = legs.filter(l => (l['Status']||'').trim() === 'Pending');
-    // Get unique pallet IDs with pending legs
-    const pendingPalletIds = [...new Set(pendingLegs.map(l => l['Pallet ID']))];
     
-    // Build table data: for each, show pallet ID, current location (From Location of pending leg), destination (To Location)
-    const pallets = palletsJson.data || [];
+    // For each pallet, only show its next pending leg if all prior legs are Complete
+    const palletLegsMap = {};
+    legs.forEach(l => {
+      const pid = (l['Pallet ID']||'').trim();
+      if (!palletLegsMap[pid]) palletLegsMap[pid] = [];
+      palletLegsMap[pid].push(l);
+    });
+
     const rows = [];
-    pendingPalletIds.forEach(pid => {
+    const pallets = palletsJson.data || [];
+    Object.keys(palletLegsMap).forEach(pid => {
+      const pLegs = palletLegsMap[pid].sort((a, b) => parseInt(a['Leg #']||0) - parseInt(b['Leg #']||0));
+      // Find the first pending leg
+      const firstPending = pLegs.find(l => (l['Status']||'').trim() === 'Pending');
+      if (!firstPending) return;
+      // Check that all legs before it are Complete
+      const pendingLegNum = parseInt(firstPending['Leg #'] || 0);
+      const allPriorComplete = pLegs.filter(l => parseInt(l['Leg #']||0) < pendingLegNum)
+        .every(l => (l['Status']||'').trim() === 'Complete');
+      if (!allPriorComplete) return;
+
       const pallet = pallets.find(p => (p['Pallet ID']||'') === pid);
-      const leg = pendingLegs.find(l => (l['Pallet ID']||'') === pid);
-      if (pallet && leg) {
+      if (pallet) {
         rows.push({
           palletId: pid,
-          currentLocation: leg['From Location'] || pallet['Current Location'] || '—',
-          destination: leg['To Location'] || '—',
-          legType: leg['Leg Type'] || '',
-          legNum: leg['Leg #'] || ''
+          currentLocation: firstPending['From Location'] || pallet['Current Location'] || '—',
+          destination: firstPending['To Location'] || '—',
+          legType: firstPending['Leg Type'] || '',
+          legNum: firstPending['Leg #'] || ''
         });
       }
     });

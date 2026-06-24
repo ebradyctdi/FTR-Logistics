@@ -84,6 +84,7 @@
     <div class="nav-section">Views</div>
     <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
     <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
     <div class="nav-section">Logistics</div>
@@ -96,8 +97,9 @@
     <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
     <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
     <div class="nav-section">System</div>
-    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
     <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
+    <a href="line-hauls.html"><span class="icon">🛣️</span> Line Hauls</a>
   </div>
 </nav>
 <div class="main-wrap">
@@ -110,7 +112,7 @@
   </div>
   <div class="container">
     <div class="card">
-      <h2>Pallets Awaiting Route</h2>
+      <h2>Pallets Awaiting Routing</h2>
       <div class="filter-bar">
         <input type="text" id="filterInput" placeholder="Filter by Pallet ID..." oninput="filterTable()">
         <span class="count" id="countLabel">0 pallets</span>
@@ -128,9 +130,11 @@
     <div class="modal-sub" id="modalSubtitle"></div>
     <div class="form-group" style="margin-top:16px;position:relative;">
       <label>Final Destination</label>
-      <input type="text" id="finalDestSearch" placeholder="Type to search locations..." autocomplete="off" oninput="filterFinalDest()" onfocus="showFinalDestList()" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+      <div id="finalDestDisplay" style="padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#f8f9fa;min-height:42px;">
+        <div id="finalDestNameDisplay" style="font-weight:600;color:#1a3a5c;"></div>
+        <div id="finalDestAddrDisplay" style="font-size:12px;color:#555;margin-top:2px;"></div>
+      </div>
       <input type="hidden" id="finalDestValue">
-      <div id="finalDestList" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
     </div>
     <div class="route-builder" style="margin-top:16px;">
       <h4>Route Preview</h4>
@@ -150,7 +154,8 @@ let unroutedPallets = [];
 let hubLocations = [];
 let selectedPallet = null;
 let hubStops = [];
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwaLGGu_myYwE_PqDOaRWtAW-RNpoZNMd17fr1-qI1erBW1rBqf2cgDRDRBtBTXfgZJ/exec'; } catch(e) {}
+let allPalletItems = [];
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -187,15 +192,17 @@ function renderTable(pallets) {
   const wrap = document.getElementById('palletTableWrap');
   document.getElementById('countLabel').textContent = pallets.length + ' pallet' + (pallets.length !== 1 ? 's' : '');
   if (!pallets || pallets.length === 0) {
-    wrap.innerHTML = '<div class="empty-msg">No closed pallets awaiting route assignment.</div>';
+    wrap.innerHTML = '<div class="empty-msg">No closed pallets awaiting routing.</div>';
     return;
   }
-  let html = '<table><thead><tr><th>Pallet ID</th><th>Origin</th><th>Description</th><th>Close Date</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>Pallet ID</th><th>Origin</th><th style="text-align:center;"># of Items</th><th>Close Date</th></tr></thead><tbody>';
   pallets.forEach(p => {
-    html += '<tr onclick="openRouteModal(\'' + escHtml(p['Pallet ID']||'').replace(/'/g, "\\'") + '\')">';
-    html += '<td><strong>' + escHtml(p['Pallet ID']||'') + '</strong></td>';
+    const pid = (p['Pallet ID']||'').trim();
+    const itemCount = allPalletItems ? allPalletItems.filter(item => (item['Pallet ID']||'').trim() === pid && (item['Status']||'').toLowerCase() === 'on pallet').length : 0;
+    html += '<tr onclick="openRouteModal(\'' + escHtml(pid).replace(/'/g, "\\'") + '\')">';
+    html += '<td><strong>' + escHtml(pid) + '</strong></td>';
     html += '<td>' + escHtml(p['Origin']||'') + '</td>';
-    html += '<td>' + escHtml(p['Description']||'') + '</td>';
+    html += '<td style="text-align:center;">' + itemCount + '</td>';
     html += '<td>' + escHtml(p['Close Date']||'') + '</td>';
     html += '</tr>';
   });
@@ -214,10 +221,31 @@ function openRouteModal(palletId) {
   selectedPallet = unroutedPallets.find(p => p['Pallet ID'] === palletId);
   if (!selectedPallet) return;
   hubStops = [];
-  document.getElementById('finalDestSearch').value = '';
-  document.getElementById('finalDestValue').value = '';
-  document.getElementById('finalDestList').style.display = 'none';
   document.getElementById('modalSubtitle').textContent = 'Pallet: ' + selectedPallet['Pallet ID'] + '  •  Origin: ' + (selectedPallet['Origin']||'N/A');
+
+  // Pre-fill final destination from pallet info if available
+  const palletFinalDest = (selectedPallet['Final Destination'] || '').trim();
+  if (palletFinalDest) {
+    // Check if it matches an existing location name
+    const matchingHub = hubLocations.find(h => (h['Name']||'').toLowerCase() === palletFinalDest.toLowerCase());
+    if (matchingHub) {
+      document.getElementById('finalDestNameDisplay').textContent = (matchingHub['Location ID']||'') + ' - ' + (matchingHub['Name']||'');
+      document.getElementById('finalDestAddrDisplay').textContent = matchingHub['Address'] || '';
+      document.getElementById('finalDestValue').value = matchingHub['Name'];
+    } else {
+      // Could be a custom destination (Name | Address format)
+      const name = palletFinalDest.includes('|') ? palletFinalDest.split('|')[0].trim() : palletFinalDest;
+      const addr = palletFinalDest.includes('|') ? palletFinalDest.split('|')[1].trim() : '';
+      document.getElementById('finalDestNameDisplay').textContent = name;
+      document.getElementById('finalDestAddrDisplay').textContent = addr;
+      document.getElementById('finalDestValue').value = name;
+    }
+  } else {
+    document.getElementById('finalDestNameDisplay').textContent = '— Not set —';
+    document.getElementById('finalDestAddrDisplay').textContent = '';
+    document.getElementById('finalDestValue').value = '';
+  }
+
   renderRoutePreview();
   document.getElementById('modalOverlay').classList.add('show');
 }
@@ -254,7 +282,22 @@ function renderRoutePreview() {
   html += '<button type="button" class="add-hub-btn" onclick="addHubStop()" style="margin:8px 0;">➕ Add Hub Transfer</button>';
   html += '<div class="route-connector">↓</div>';
   // Final destination
-  html += '<div class="route-step dest"><span class="step-icon">🏁</span><span class="step-label">' + escHtml(finalDest) + '</span><span style="font-size:11px;opacity:0.6;">FINAL DESTINATION</span></div>';
+  let finalDestAddrHtml = '';
+  if (finalDest && finalDest !== '(select destination)') {
+    // Check if it's a known location
+    const fHub = hubLocations.find(h => (h['Name']||'').toLowerCase() === finalDest.toLowerCase());
+    if (fHub && fHub['Address']) {
+      finalDestAddrHtml = '<div style="font-size:11px;color:#555;margin-top:2px;">' + escHtml(fHub['Address']) + '</div>';
+    } else if (selectedPallet) {
+      // Check if pallet has custom address (Name | Address format)
+      const palletFD = (selectedPallet['Final Destination']||'');
+      if (palletFD.includes('|')) {
+        const addr = palletFD.split('|')[1] ? palletFD.split('|')[1].trim() : '';
+        if (addr) finalDestAddrHtml = '<div style="font-size:11px;color:#555;margin-top:2px;">' + escHtml(addr) + '</div>';
+      }
+    }
+  }
+  html += '<div class="route-step dest"><span class="step-icon">🏁</span><div><span class="step-label">' + escHtml(finalDest) + '</span>' + finalDestAddrHtml + '</div><span style="font-size:11px;opacity:0.6;">FINAL DESTINATION</span></div>';
   container.innerHTML = html;
 }
 
@@ -273,48 +316,7 @@ function updateHubStop(index, value) {
   renderRoutePreview();
 }
 
-// Final Destination search/autocomplete
-function filterFinalDest() {
-  const query = document.getElementById('finalDestSearch').value.toLowerCase().trim();
-  const list = document.getElementById('finalDestList');
-  const locations = window._finalLocations || [];
-  
-  const filtered = query ? locations.filter(h => {
-    const id = (h['Location ID']||'').toLowerCase();
-    const name = (h['Name']||'').toLowerCase();
-    return id.includes(query) || name.includes(query);
-  }) : locations;
-  
-  if (filtered.length === 0) {
-    list.innerHTML = '<div style="padding:10px 14px;color:#888;font-size:13px;">No matches found</div>';
-  } else {
-    list.innerHTML = filtered.map(h => {
-      const display = (h['Location ID']||'') + ' - ' + (h['Name']||'');
-      return '<div style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'white\'" onclick="selectFinalDest(\'' + escHtml(h['Name']).replace(/'/g,"\\'") + '\', \'' + escHtml(display).replace(/'/g,"\\'") + '\')">' + escHtml(display) + '</div>';
-    }).join('');
-  }
-  list.style.display = 'block';
-}
-
-function showFinalDestList() {
-  filterFinalDest();
-}
-
-function selectFinalDest(value, display) {
-  document.getElementById('finalDestValue').value = value;
-  document.getElementById('finalDestSearch').value = display;
-  document.getElementById('finalDestList').style.display = 'none';
-  renderRoutePreview();
-}
-
-// Close list when clicking outside
-document.addEventListener('click', function(e) {
-  const list = document.getElementById('finalDestList');
-  const input = document.getElementById('finalDestSearch');
-  if (list && input && !list.contains(e.target) && e.target !== input) {
-    list.style.display = 'none';
-  }
-});
+// Final Destination is now read-only from pallet data (no search needed)
 
 function buildLegs() {
   const origin = selectedPallet['Origin'] || '';
@@ -377,11 +379,16 @@ async function loadData() {
   setStatus('pending', 'Loading...');
   try {
     // Load pallets and routes in parallel
-    const [palletsJson, routesJson, hubsJson] = await Promise.all([
+    const [palletsJson, routesJson, hubsJson, itemsJson] = await Promise.all([
       jsonpRequest(scriptUrl, { action: 'read' }),
       jsonpRequest(scriptUrl, { action: 'readroutes' }),
-      jsonpRequest(scriptUrl, { action: 'readhubs' })
+      jsonpRequest(scriptUrl, { action: 'readhubs' }),
+      jsonpRequest(scriptUrl, { action: 'readpalletitems' })
     ]);
+
+    if (itemsJson && itemsJson.success) {
+      allPalletItems = itemsJson.data || [];
+    }
 
     if (palletsJson.success && routesJson.success) {
       setStatus('connected', 'Connected');

@@ -94,6 +94,7 @@
     <div class="nav-section">Views</div>
     <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html" class="active"><span class="icon">🔍</span> Pallet Tracker</a>
+    <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
     <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
     <div class="nav-section">Logistics</div>
@@ -106,8 +107,9 @@
     <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
     <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
     <div class="nav-section">System</div>
-    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
     <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
+    <a href="line-hauls.html"><span class="icon">🛣️</span> Line Hauls</a>
   </div>
 </nav>
 <div class="main-wrap">
@@ -178,6 +180,10 @@
         <div id="routeInfo"></div>
         <div class="leg-list" id="legList"></div>
       </div>
+      <div class="card" style="box-shadow:none;border:1px solid #eee;">
+        <h2>Items on Pallet</h2>
+        <div id="palletItemsSummary"></div>
+      </div>
       <div class="card" style="box-shadow:none;border:1px solid #eee;margin-bottom:0;">
         <h2>Transaction History</h2>
         <div style="overflow-x:auto;">
@@ -194,7 +200,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '', _jsonpCounter = 0;
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwaLGGu_myYwE_PqDOaRWtAW-RNpoZNMd17fr1-qI1erBW1rBqf2cgDRDRBtBTXfgZJ/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -374,12 +380,25 @@ function fmtDate(str) {
   if (!str) return '—';
   const s = str.toString().trim();
   if (!s) return '—';
+  // Try M/d/yyyy H:mm:ss format first
   const m = s.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
   if (m) {
-    const month = m[1], day = m[2], hr = parseInt(m[4]), min = m[5];
+    const month = m[1], day = m[2], yr = m[3], hr = parseInt(m[4]), min = m[5];
     const ampm = hr >= 12 ? 'PM' : 'AM';
     const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
-    return month + '/' + day + '/' + m[3] + ', ' + h12 + ':' + min + ' ' + ampm;
+    return month + '/' + day + '/' + yr + ', ' + h12 + ':' + min + ' ' + ampm;
+  }
+  // Try parsing as a Date object string
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const mo = d.getMonth() + 1;
+    const dy = d.getDate();
+    const yr = d.getFullYear();
+    let hr = d.getHours();
+    const min = ('0' + d.getMinutes()).slice(-2);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    hr = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return mo + '/' + dy + '/' + yr + ', ' + hr + ':' + min + ' ' + ampm;
   }
   return s;
 }
@@ -442,10 +461,12 @@ async function searchPalletById(pid) {
   setStatus('pending', 'Searching...');
 
   try {
-    const [palletsRes, historyRes, legsRes] = await Promise.all([
+    const [palletsRes, historyRes, legsRes, itemsRes, hubsRes] = await Promise.all([
       jsonpRequest(scriptUrl, { action: 'read' }),
       jsonpRequest(scriptUrl, { action: 'pallethistory', palletid: pid }),
-      jsonpRequest(scriptUrl, { action: 'readlegs' })
+      jsonpRequest(scriptUrl, { action: 'readlegs' }),
+      jsonpRequest(scriptUrl, { action: 'readpalletitems', palletid: pid }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' })
     ]);
 
     setStatus('connected', 'Connected');
@@ -462,11 +483,32 @@ async function searchPalletById(pid) {
     }
 
     // Pallet Info
+    const hubLocs = (hubsRes && hubsRes.success) ? hubsRes.data || [] : [];
+    function getLocAddr(name) {
+      if (!name) return '';
+      const n = name.trim().toLowerCase();
+      let hub = hubLocs.find(h => (h['Name']||'').trim().toLowerCase() === n);
+      if (!hub) hub = hubLocs.find(h => (h['Name']||'').toLowerCase().includes(n) || n.includes((h['Name']||'').toLowerCase()));
+      return hub ? (hub['Address']||'') : '';
+    }
+    const originAddr = getLocAddr(pallet['Origin']);
+    const finalDestVal = (pallet['Final Destination']||'').trim();
+    let fdName = '—', fdAddr = '';
+    if (finalDestVal) {
+      if (finalDestVal.includes('|')) {
+        fdName = finalDestVal.split('|')[0].trim();
+        fdAddr = finalDestVal.split('|')[1] ? finalDestVal.split('|')[1].trim() : '';
+      } else {
+        fdName = finalDestVal;
+        fdAddr = getLocAddr(finalDestVal);
+      }
+    }
+
     const infoHtml = `
       <div class="info-item"><div class="label">Pallet ID</div><div class="value">${escHtml(pallet['Pallet ID'])}</div></div>
-      <div class="info-item"><div class="label">Origin</div><div class="value">${escHtml(pallet['Origin'])}</div></div>
-      <div class="info-item"><div class="label">Description</div><div class="value">${escHtml(pallet['Description'] || '—')}</div></div>
       <div class="info-item"><div class="label">Status</div><div class="value">${getStatusBadge(pallet['Status'])}</div></div>
+      <div class="info-item" style="grid-column:1/-1;"><div class="label">Origin</div><div class="value"><strong>${escHtml(pallet['Origin'])}</strong>${originAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(originAddr) + '</span>' : ''}</div></div>
+      <div class="info-item" style="grid-column:1/-1;"><div class="label">Final Destination</div><div class="value"><strong>${escHtml(fdName)}</strong>${fdAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(fdAddr) + '</span>' : ''}</div></div>
       <div class="info-item"><div class="label">Opened By</div><div class="value">${escHtml(pallet['Opened By'] || '—')}</div></div>
       <div class="info-item"><div class="label">Open Date</div><div class="value">${fmtDate(pallet['Open Date'] || '')}</div></div>
       <div class="info-item"><div class="label">Closed By</div><div class="value">${escHtml(pallet['Closed By'] || '—')}</div></div>
@@ -519,6 +561,21 @@ async function searchPalletById(pid) {
       });
     }
     document.getElementById('legList').innerHTML = legsHtml;
+
+    // Items on Pallet
+    const items = (itemsRes && itemsRes.success) ? (itemsRes.data || []).filter(i => (i['Status']||'').toLowerCase() === 'on pallet') : [];
+    let itemsHtml = '';
+    if (items.length === 0) {
+      itemsHtml = '<div style="color:#999;font-size:13px;text-align:center;padding:12px;">No items on this pallet</div>';
+    } else {
+      itemsHtml = '<div style="font-size:13px;margin-bottom:8px;color:#666;">' + items.length + ' item' + (items.length !== 1 ? 's' : '') + '</div>';
+      itemsHtml += '<table style="font-size:12px;"><thead><tr><th>#</th><th>MUSE Ticket #</th><th>Description / Note</th><th>Serial #</th></tr></thead><tbody>';
+      items.forEach((item, i) => {
+        itemsHtml += '<tr><td>' + (i+1) + '</td><td><strong>' + escHtml(item['MUSE Ticket']||'') + '</strong></td><td>' + escHtml(item['Description Note']||'—') + '</td><td>' + escHtml(item['Item Serial Number']||'—') + '</td></tr>';
+      });
+      itemsHtml += '</tbody></table>';
+    }
+    document.getElementById('palletItemsSummary').innerHTML = itemsHtml;
 
     // History
     const history = (historyRes.success ? historyRes.data : []);

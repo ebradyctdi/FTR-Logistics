@@ -69,6 +69,7 @@
     <div class="nav-section">Views</div>
     <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
+    <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
     <a href="pallet-build.html"><span class="icon">🔨</span> Pallet Build</a>
     <div class="nav-section">Logistics</div>
@@ -81,8 +82,9 @@
     <a href="report-exception.html"><span class="icon">⚠️</span> Report Exception</a>
     <a href="open-exceptions.html"><span class="icon">🚨</span> Open Exceptions</a>
     <div class="nav-section">System</div>
-    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
     <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+    <a href="hub-locations.html"><span class="icon">🏭</span> Routing Locations</a>
+    <a href="line-hauls.html"><span class="icon">🛣️</span> Line Hauls</a>
   </div>
 </nav>
 <div class="main-wrap">
@@ -125,7 +127,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwaLGGu_myYwE_PqDOaRWtAW-RNpoZNMd17fr1-qI1erBW1rBqf2cgDRDRBtBTXfgZJ/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -184,16 +186,23 @@ function doScan(palletId) {
   if (!palletId.trim()) return;
   if (!scriptUrl) { showToast('No script URL configured — go to Settings', 'error'); return; }
 
-  // Find the in-transit leg for this pallet to get driver and destination
+  // Validate pallet is in transit
   const leg = allTransitLegs.find(l => (l['Pallet ID']||'').trim() === palletId.trim());
-  const driver = leg ? (leg['Pickup Scan By']||'') : '';
-  const dropoffLoc = leg ? (leg['To Location']||'—') : '—';
+  if (!leg) {
+    showToast(palletId.trim() + ' is not in transit', 'error');
+    document.getElementById('scanInput').value = '';
+    document.getElementById('scanInput').focus();
+    return;
+  }
+
+  const driver = leg['Pickup Scan By'] || '';
+  const dropoffLoc = leg['To Location'] || '—';
   const defaultUser = driver || getUser();
 
   pendingScan = { palletId: palletId.trim(), user: defaultUser };
 
   const detailsHtml = '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pallet ID</span><br><strong style="font-size:16px;font-family:Consolas,monospace;">' + escHtml(palletId.trim()) + '</strong></div>' +
-    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Dropoff Location</span><br><strong style="color:#1a3a5c;">' + escHtml(dropoffLoc) + '</strong></div>' +
+    '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Dropoff Location</span><br><strong style="color:#1a3a5c;">' + escHtml(dropoffLoc) + '</strong>' + (function(){ var locs=window._allLocations||[]; var n=(dropoffLoc||'').trim().toLowerCase(); var hub=locs.find(function(h){return (h['Name']||'').trim().toLowerCase()===n;}); if(!hub) hub=locs.find(function(h){return (h['Name']||'').toLowerCase().includes(n)||n.includes((h['Name']||'').toLowerCase());}); return hub&&hub['Address']?'<br><span style="font-size:12px;color:#555;">'+escHtml(hub['Address'])+'</span>':''; })() + '</div>' +
     '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Dropped Off By</span><br><input type="text" id="dropoffByInput" value="' + escHtml(defaultUser) + '" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-weight:600;margin-top:4px;"></div>';
   document.getElementById('confirmDetails').innerHTML = detailsHtml;
   document.getElementById('confirmModal').classList.add('show');
@@ -269,8 +278,15 @@ function escHtml(s) { const d = document.createElement('div'); d.textContent = s
 async function loadInTransit() {
   if (!scriptUrl) return;
   try {
-    const legsJson = await jsonpRequest(scriptUrl, { action: 'readlegs' });
+    const [legsJson, hubsJson] = await Promise.all([
+      jsonpRequest(scriptUrl, { action: 'readlegs' }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' })
+    ]);
     if (!legsJson.success) return;
+
+    if (hubsJson && hubsJson.success) {
+      window._allLocations = hubsJson.data || [];
+    }
 
     const legs = legsJson.data || [];
     // Find legs that are In Transit (picked up but not yet dropped off)
