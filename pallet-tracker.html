@@ -92,7 +92,6 @@
   <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
   <div class="sidebar-nav">
     <div class="nav-section">Views</div>
-    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html" class="active"><span class="icon">🔍</span> Pallet Tracker</a>
     <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
@@ -127,35 +126,65 @@
       <div class="kpi" style="border-top:4px solid #6c757d;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('closedNoRoute')"><div class="kpi-val" id="ptClosedNoRoute">—</div><div class="kpi-label">Closed Awaiting Routing</div></div>
       <div class="kpi" style="border-top:4px solid #17a2b8;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('routedPending')"><div class="kpi-val" id="ptRoutedPending">—</div><div class="kpi-label">Routed Awaiting Pickup</div></div>
       <div class="kpi" style="border-top:4px solid #fd7e14;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('transitHub')"><div class="kpi-val" id="ptTransitHub">—</div><div class="kpi-label">In Transit to Hub</div></div>
+      <div class="kpi" style="border-top:4px solid #dc3545;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('awaitingReceipt')"><div class="kpi-val" id="ptAwaitingReceipt">—</div><div class="kpi-label">Awaiting Hub Receipt</div></div>
       <div class="kpi" style="border-top:4px solid #6f42c1;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('atHub')"><div class="kpi-val" id="ptAtHub">—</div><div class="kpi-label">At Crossdock Hub</div></div>
       <div class="kpi" style="border-top:4px solid #e91e63;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('transitFinal')"><div class="kpi-val" id="ptTransitFinal">—</div><div class="kpi-label">In Transit to Final</div></div>
-      <div class="kpi" style="border-top:4px solid #28a745;padding:14px 10px;cursor:pointer;" onclick="filterByCategory('delivered')"><div class="kpi-val" id="ptDelivered">—</div><div class="kpi-label">Delivered</div></div>
     </div>
 
-    <!-- All Pallets Table -->
-    <div class="card" id="allPalletsCard">
-      <h2>All Pallets</h2>
+    <!-- Active Pallets Table -->
+    <div class="card" id="activePalletsCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;">
+        <h2 style="margin-bottom:0;border:none;padding:0;">Active Pallets <span id="activeTotal" style="font-size:14px;font-weight:700;color:white;background:#1a3a5c;padding:2px 10px;border-radius:12px;margin-left:8px;"></span></h2>
+        <button onclick="exportCSV('active')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">📥 Export CSV</button>
+      </div>
+      <div style="border-bottom:2px solid #1a3a5c;margin-bottom:16px;padding-bottom:8px;"></div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
         <input type="text" id="filterText" placeholder="Filter by Pallet ID..." oninput="renderAllPallets()" style="flex:1;min-width:180px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
         <select id="filterStatus" onchange="renderAllPallets()" style="padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:white;">
-          <option value="">All Statuses</option>
+          <option value="">All Active</option>
           <option value="Open">Open Pallets</option>
           <option value="Closed - No Route">Closed Awaiting Routing</option>
           <option value="Closed - Routed">Routed Awaiting Pickup</option>
           <option value="In Transit to Hub">In Transit to Hub</option>
+          <option value="Awaiting Hub Receipt">Awaiting Hub Receipt</option>
           <option value="At Hub">At Crossdock Hub</option>
           <option value="In Transit to Final">In Transit to Final</option>
-          <option value="Delivered">Delivered</option>
         </select>
         <span id="palletCount" style="font-size:12px;color:#666;background:#f0f2f5;padding:6px 12px;border-radius:12px;font-weight:600;">0 pallets</span>
       </div>
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Pallet ID</th><th>Origin</th><th>Description</th><th>Status</th><th>Current Location</th><th>Open Date</th></tr></thead>
+          <thead><tr><th>Pallet ID</th><th>Origin</th><th>Final Destination</th><th>Status</th><th>Current Location</th><th>Last Touch</th></tr></thead>
           <tbody id="allPalletsBody"></tbody>
         </table>
       </div>
-      <div class="empty-state" id="allPalletsEmpty" style="display:none;">No pallets found</div>
+      <div class="empty-state" id="allPalletsEmpty" style="display:none;">No active pallets found</div>
+    </div>
+
+    <!-- Delivered Pallets Table -->
+    <div class="card" id="deliveredPalletsCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="togglePalletDelivered()">
+        <h2 style="margin-bottom:0;border:none;padding:0;">Delivered Pallets <span id="deliveredTotal" style="font-size:14px;font-weight:700;color:white;background:#28a745;padding:2px 10px;border-radius:12px;margin-left:8px;"></span></h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="event.stopPropagation();exportCSV('delivered')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">📥 Export CSV</button>
+          <button id="deliveredToggleBtn" onclick="event.stopPropagation();togglePalletDelivered()" style="padding:6px 14px;background:#e9ecef;color:#333;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">Show Delivered</button>
+        </div>
+      </div>
+      <div id="deliveredPalletsSection" style="display:none;margin-top:16px;">
+        <div style="border-top:2px solid #1a3a5c;padding-top:16px;">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+            <input type="text" id="filterDeliveredText" placeholder="Filter by Pallet ID..." oninput="renderAllPallets()" style="flex:1;min-width:180px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+            <span id="deliveredCount" style="font-size:12px;color:#666;background:#f0f2f5;padding:6px 12px;border-radius:12px;font-weight:600;">0 pallets</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Pallet ID</th><th>Origin</th><th>Final Location</th><th>First Pickup</th><th>Delivered</th></tr></thead>
+              <tbody id="deliveredPalletsBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="deliveredPalletsEmpty" style="display:none;">No delivered pallets found</div>
+        </div>
+      </div>
     </div>
 
     <div id="notFound" class="not-found" style="display:none;">Pallet not found</div>
@@ -172,17 +201,20 @@
     </div>
     <div style="padding:20px 24px;">
       <div class="card" style="box-shadow:none;border:1px solid #eee;margin-bottom:16px;">
+        <div id="palletPizzaTracker"></div>
+      </div>
+      <div class="card" style="box-shadow:none;border:1px solid #eee;margin-bottom:16px;">
         <h2>Pallet Info</h2>
         <div class="info-grid" id="palletInfo"></div>
+      </div>
+      <div class="card" style="box-shadow:none;border:1px solid #eee;margin-bottom:16px;">
+        <h2>Items on Pallet</h2>
+        <div id="palletItemsSummary"></div>
       </div>
       <div class="card" style="box-shadow:none;border:1px solid #eee;margin-bottom:16px;">
         <h2>Route</h2>
         <div id="routeInfo"></div>
         <div class="leg-list" id="legList"></div>
-      </div>
-      <div class="card" style="box-shadow:none;border:1px solid #eee;">
-        <h2>Items on Pallet</h2>
-        <div id="palletItemsSummary"></div>
       </div>
       <div class="card" style="box-shadow:none;border:1px solid #eee;margin-bottom:0;">
         <h2>Transaction History</h2>
@@ -200,13 +232,16 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '', _jsonpCounter = 0;
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwv4__hrZ716OYCEv17rqPXm8JWYLydiq85jl6QE_3jlyw7TaJg_gEnHlHTsHqfzwjA/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
 let allPallets = [];
 let allLegsData = [];
 let allRoutesData = [];
+let allHistoryData = [];
+let allPalletItems = [];
+let allHubLocations = [];
 let activeCategoryFilter = '';
 
 function filterByCategory(category) {
@@ -221,7 +256,7 @@ function filterByCategory(category) {
   // Highlight active card
   document.querySelectorAll('#pizzaTracker .kpi').forEach(el => el.style.outline = 'none');
   if (activeCategoryFilter) {
-    const idx = ['open','closedNoRoute','routedPending','transitHub','atHub','transitFinal','delivered'].indexOf(activeCategoryFilter);
+    const idx = ['open','closedNoRoute','routedPending','transitHub','awaitingReceipt','atHub','transitFinal'].indexOf(activeCategoryFilter);
     if (idx >= 0) {
       document.querySelectorAll('#pizzaTracker .kpi')[idx].style.outline = '3px solid #1a3a5c';
     }
@@ -230,9 +265,11 @@ function filterByCategory(category) {
 
 function getStatusBadgeInline(status) {
   const s = (status||'').toLowerCase();
-  const colors = { 'open':'#0d6efd', 'closed':'#6c757d', 'in transit':'#fd7e14', 'at hub':'#6f42c1', 'delivered':'#28a745', 'on hold':'#dc3545' };
+  const displayNames = { 'open':'Pallet Open', 'closed':'Pallet Closed', 'pallet open':'Pallet Open', 'pallet closed':'Pallet Closed', 'routed':'Routed', 'awaiting hub receipt':'Awaiting Hub Receipt', 'transit to hub':'Transit to Hub', 'transit to final':'Transit to Final' };
+  const colors = { 'open':'#0d6efd', 'pallet open':'#0d6efd', 'closed':'#6c757d', 'pallet closed':'#6c757d', 'routed':'#17a2b8', 'awaiting hub receipt':'#dc3545', 'transit to hub':'#fd7e14', 'transit to final':'#e91e63', 'in transit':'#fd7e14', 'at hub':'#6f42c1', 'delivered':'#28a745', 'on hold':'#dc3545' };
   const color = colors[s] || '#888';
-  return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:' + color + '20;color:' + color + ';">' + escHtml(status) + '</span>';
+  const label = displayNames[s] || status;
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:' + color + '20;color:' + color + ';">' + escHtml(label) + '</span>';
 }
 
 function getStandardizedLocation(pallet) {
@@ -279,6 +316,9 @@ function getPizzaCategory(pallet) {
   
   if (status === 'In Transit') {
     const legs = allLegsData.filter(l => (l['Pallet ID']||'').trim() === palletId);
+    // Check if there's a leg in "Dropped Off" state (awaiting receipt)
+    const droppedOffLeg = legs.find(l => (l['Status']||'').trim() === 'Dropped Off');
+    if (droppedOffLeg) return 'awaitingReceipt';
     const activeLeg = legs.find(l => (l['Status']||'').trim() === 'In Transit');
     if (activeLeg && (activeLeg['Leg Type']||'').trim() === 'Final') return 'transitFinal';
     return 'transitHub';
@@ -288,7 +328,7 @@ function getPizzaCategory(pallet) {
 }
 
 function renderPizzaTracker() {
-  const counts = { open: 0, closedNoRoute: 0, routedPending: 0, transitHub: 0, atHub: 0, transitFinal: 0, delivered: 0 };
+  const counts = { open: 0, closedNoRoute: 0, routedPending: 0, transitHub: 0, awaitingReceipt: 0, atHub: 0, transitFinal: 0, delivered: 0 };
   allPallets.forEach(p => {
     const cat = getPizzaCategory(p);
     if (counts[cat] !== undefined) counts[cat]++;
@@ -297,18 +337,23 @@ function renderPizzaTracker() {
   document.getElementById('ptClosedNoRoute').textContent = counts.closedNoRoute;
   document.getElementById('ptRoutedPending').textContent = counts.routedPending;
   document.getElementById('ptTransitHub').textContent = counts.transitHub;
+  document.getElementById('ptAwaitingReceipt').textContent = counts.awaitingReceipt;
   document.getElementById('ptAtHub').textContent = counts.atHub;
   document.getElementById('ptTransitFinal').textContent = counts.transitFinal;
-  document.getElementById('ptDelivered').textContent = counts.delivered;
 }
 
 function renderAllPallets() {
   const textFilter = (document.getElementById('filterText').value || '').trim().toLowerCase();
   const statusFilter = document.getElementById('filterStatus').value;
+  const deliveredTextFilter = (document.getElementById('filterDeliveredText').value || '').trim().toLowerCase();
 
-  let filtered = allPallets;
+  // Split into active and delivered
+  let activePallets = allPallets.filter(p => getPizzaCategory(p) !== 'delivered');
+  let deliveredPallets = allPallets.filter(p => getPizzaCategory(p) === 'delivered');
+
+  // Filter active
   if (textFilter) {
-    filtered = filtered.filter(p => (p['Pallet ID']||'').toLowerCase().includes(textFilter));
+    activePallets = activePallets.filter(p => (p['Pallet ID']||'').toLowerCase().includes(textFilter));
   }
   if (statusFilter) {
     const categoryMap = {
@@ -316,54 +361,240 @@ function renderAllPallets() {
       'Closed - No Route': 'closedNoRoute',
       'Closed - Routed': 'routedPending',
       'In Transit to Hub': 'transitHub',
+      'Awaiting Hub Receipt': 'awaitingReceipt',
       'At Hub': 'atHub',
-      'In Transit to Final': 'transitFinal',
-      'Delivered': 'delivered'
+      'In Transit to Final': 'transitFinal'
     };
     const cat = categoryMap[statusFilter];
-    if (cat) filtered = filtered.filter(p => getPizzaCategory(p) === cat);
+    if (cat) activePallets = activePallets.filter(p => getPizzaCategory(p) === cat);
   }
   if (activeCategoryFilter) {
-    filtered = filtered.filter(p => getPizzaCategory(p) === activeCategoryFilter);
+    if (activeCategoryFilter === 'delivered') {
+      activePallets = [];
+    } else {
+      activePallets = activePallets.filter(p => getPizzaCategory(p) === activeCategoryFilter);
+    }
   }
 
-  document.getElementById('palletCount').textContent = filtered.length + ' pallet' + (filtered.length !== 1 ? 's' : '');
+  // Filter delivered
+  if (deliveredTextFilter) {
+    deliveredPallets = deliveredPallets.filter(p => (p['Pallet ID']||'').toLowerCase().includes(deliveredTextFilter));
+  }
 
-  if (filtered.length === 0) {
+  // Render active table
+  document.getElementById('activeTotal').textContent = activePallets.length;
+  document.getElementById('palletCount').textContent = activePallets.length + ' pallet' + (activePallets.length !== 1 ? 's' : '');
+  if (activePallets.length === 0) {
     document.getElementById('allPalletsBody').innerHTML = '';
     document.getElementById('allPalletsEmpty').style.display = 'block';
-    return;
+  } else {
+    document.getElementById('allPalletsEmpty').style.display = 'none';
+    let html = '';
+    activePallets.forEach(p => {
+      const pid = (p['Pallet ID']||'').trim();
+      // Get most recent transaction for this pallet
+      const palletHistory = allHistoryData.filter(h => (h['Pallet ID']||'').trim() === pid);
+      let lastAction = '—', lastDate = '';
+      if (palletHistory.length > 0) {
+        const sorted = palletHistory.sort((a, b) => new Date(b['Timestamp']||0) - new Date(a['Timestamp']||0));
+        lastAction = sorted[0]['Action'] || '—';
+        lastDate = sorted[0]['Timestamp'] || '';
+      }
+      html += '<tr style="cursor:pointer;" onclick="searchPalletById(\'' + escHtml(pid).replace(/'/g,"\\'") + '\')">';
+      html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(pid) + '</strong></td>';
+      html += '<td>' + escHtml(p['Origin']||'') + '</td>';
+      let fdDisp = (p['Final Destination']||'').trim();
+      if (fdDisp.includes('|')) fdDisp = fdDisp.split('|')[0].trim();
+      html += '<td>' + escHtml(fdDisp || '—') + '</td>';
+      // Show computed display status
+      let displayStatus = p['Status'] || '';
+      const palletCat = getPizzaCategory(p);
+      if (palletCat === 'routedPending') displayStatus = 'Routed';
+      else if (palletCat === 'awaitingReceipt') displayStatus = 'Awaiting Hub Receipt';
+      else if (palletCat === 'transitHub') displayStatus = 'Transit to Hub';
+      else if (palletCat === 'transitFinal') displayStatus = 'Transit to Final';
+      else if (displayStatus === 'Closed') displayStatus = 'Pallet Closed';
+      else if (displayStatus === 'Open') displayStatus = 'Pallet Open';
+      html += '<td>' + getStatusBadgeInline(displayStatus) + '</td>';
+      html += '<td>' + escHtml(getStandardizedLocation(p)) + '</td>';
+      html += '<td>' + fmtDate(lastDate) + '</td>';
+      html += '</tr>';
+    });
+    document.getElementById('allPalletsBody').innerHTML = html;
   }
-  document.getElementById('allPalletsEmpty').style.display = 'none';
 
-  let html = '';
-  filtered.forEach(p => {
-    html += '<tr style="cursor:pointer;" onclick="searchPalletById(\'' + escHtml(p['Pallet ID']||'').replace(/'/g,"\\'") + '\')">';
-    html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(p['Pallet ID']||'') + '</strong></td>';
-    html += '<td>' + escHtml(p['Origin']||'') + '</td>';
-    html += '<td>' + escHtml(p['Description']||'—') + '</td>';
-    html += '<td>' + getStatusBadgeInline(p['Status']||'') + '</td>';
-    html += '<td>' + escHtml(getStandardizedLocation(p)) + '</td>';
-    html += '<td>' + fmtDate(p['Open Date']||'') + '</td>';
-    html += '</tr>';
+  // Render delivered table
+  const totalDelivered = allPallets.filter(p => getPizzaCategory(p) === 'delivered').length;
+  document.getElementById('deliveredTotal').textContent = totalDelivered;
+  document.getElementById('deliveredCount').textContent = deliveredPallets.length + ' pallet' + (deliveredPallets.length !== 1 ? 's' : '');
+  if (deliveredPallets.length === 0) {
+    document.getElementById('deliveredPalletsBody').innerHTML = '';
+    document.getElementById('deliveredPalletsEmpty').style.display = 'block';
+  } else {
+    document.getElementById('deliveredPalletsEmpty').style.display = 'none';
+    let html = '';
+    deliveredPallets.forEach(p => {
+      const pid = (p['Pallet ID']||'').trim();
+      // Get first pickup date and last dropoff date from legs
+      const pLegs = allLegsData.filter(l => (l['Pallet ID']||'').trim() === pid).sort((a,b) => parseInt(a['Leg #']||0) - parseInt(b['Leg #']||0));
+      const firstPickup = pLegs.length > 0 ? (pLegs[0]['Pickup Scan Date']||'') : '';
+      const lastLeg = pLegs.length > 0 ? pLegs[pLegs.length - 1] : null;
+      const deliveryDate = lastLeg ? (lastLeg['Dropoff Scan Date']||'') : '';
+
+      html += '<tr style="cursor:pointer;" onclick="searchPalletById(\'' + escHtml(pid).replace(/'/g,"\\'") + '\')">';
+      html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(pid) + '</strong></td>';
+      html += '<td>' + escHtml(p['Origin']||'') + '</td>';
+      html += '<td>' + escHtml(p['Current Location']||'—') + '</td>';
+      html += '<td>' + fmtDate(firstPickup) + '</td>';
+      html += '<td>' + fmtDate(deliveryDate) + '</td>';
+      html += '</tr>';
+    });
+    document.getElementById('deliveredPalletsBody').innerHTML = html;
+  }
+}
+
+function togglePalletDelivered() {
+  const section = document.getElementById('deliveredPalletsSection');
+  const btn = document.getElementById('deliveredToggleBtn');
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    btn.textContent = 'Hide Delivered';
+  } else {
+    section.style.display = 'none';
+    btn.textContent = 'Show Delivered';
+  }
+}
+
+function exportCSV(type) {
+  // Get the currently filtered pallets
+  let palletList;
+  if (type === 'active') {
+    const textFilter = (document.getElementById('filterText').value || '').trim().toLowerCase();
+    const statusFilter = document.getElementById('filterStatus').value;
+    palletList = allPallets.filter(p => getPizzaCategory(p) !== 'delivered');
+    if (textFilter) palletList = palletList.filter(p => (p['Pallet ID']||'').toLowerCase().includes(textFilter));
+    if (statusFilter) {
+      const categoryMap = { 'Open':'open','Closed - No Route':'closedNoRoute','Closed - Routed':'routedPending','In Transit to Hub':'transitHub','Awaiting Hub Receipt':'awaitingReceipt','At Hub':'atHub','In Transit to Final':'transitFinal' };
+      const cat = categoryMap[statusFilter];
+      if (cat) palletList = palletList.filter(p => getPizzaCategory(p) === cat);
+    }
+    if (activeCategoryFilter && activeCategoryFilter !== 'delivered') palletList = palletList.filter(p => getPizzaCategory(p) === activeCategoryFilter);
+  } else {
+    const deliveredFilter = (document.getElementById('filterDeliveredText').value || '').trim().toLowerCase();
+    palletList = allPallets.filter(p => getPizzaCategory(p) === 'delivered');
+    if (deliveredFilter) palletList = palletList.filter(p => (p['Pallet ID']||'').toLowerCase().includes(deliveredFilter));
+  }
+
+  if (palletList.length === 0) { showToast('No pallets to export', 'error'); return; }
+
+  // Build CSV
+  const headers = ['Pallet ID','Status','Origin','Origin - Full Address','Final Destination','Final - Full Address','# of MUSE Tickets','MUSE Tickets','# of Legs','Created Date','Closed Date','Initial Pickup Date','Final Delivery Date','Leg 1 Type','Leg 1 From','Leg 1 To','Leg 1 Pickup Date','Leg 1 Dropoff Date','Leg 2 Type','Leg 2 From','Leg 2 To','Leg 2 Pickup Date','Leg 2 Dropoff Date','Leg 3 Type','Leg 3 From','Leg 3 To','Leg 3 Pickup Date','Leg 3 Dropoff Date'];
+  
+  const rows = palletList.map(p => {
+    const pid = (p['Pallet ID']||'').trim();
+    const legs = allLegsData.filter(l => (l['Pallet ID']||'').trim() === pid).sort((a,b) => parseInt(a['Leg #']||0) - parseInt(b['Leg #']||0));
+    const items = allPalletItems.filter(i => (i['Pallet ID']||'').trim() === pid && (i['Status']||'').toLowerCase() === 'on pallet');
+    const museTickets = items.map(i => (i['MUSE Ticket']||'').trim()).filter(t => t).join('; ');
+    
+    let finalDest = (p['Final Destination']||'').trim();
+    let finalAddr = '';
+    if (finalDest.includes('|')) {
+      finalAddr = finalDest.split('|')[1] ? finalDest.split('|')[1].trim() : '';
+      finalDest = finalDest.split('|')[0].trim();
+    } else {
+      const fHub = allHubLocations.find(h => (h['Name']||'').trim().toLowerCase() === finalDest.toLowerCase());
+      finalAddr = fHub ? (fHub['Address']||'') : '';
+    }
+
+    const originName = (p['Origin']||'').trim();
+    const oHub = allHubLocations.find(h => (h['Name']||'').trim().toLowerCase() === originName.toLowerCase());
+    const originAddr = oHub ? (oHub['Address']||'') : '';
+
+    // Compute display status matching the table
+    let csvStatus = p['Status'] || '';
+    const csvCat = getPizzaCategory(p);
+    if (csvCat === 'routedPending') csvStatus = 'Routed';
+    else if (csvCat === 'awaitingReceipt') csvStatus = 'Awaiting Hub Receipt';
+    else if (csvCat === 'transitHub') csvStatus = 'Transit to Hub';
+    else if (csvCat === 'transitFinal') csvStatus = 'Transit to Final';
+    else if (csvStatus === 'Open') csvStatus = 'Pallet Open';
+    else if (csvStatus === 'Closed') csvStatus = 'Pallet Closed';
+
+    const row = [
+      pid,
+      csvStatus,
+      originName,
+      originAddr,
+      finalDest,
+      finalAddr,
+      items.length,
+      museTickets,
+      legs.length,
+      p['Open Date'] || '',
+      p['Close Date'] || '',
+      legs.length > 0 ? (legs[0]['Pickup Scan Date']||'') : '',
+      legs.length > 0 ? (legs[legs.length - 1]['Dropoff Scan Date']||'') : ''
+    ];
+
+    // Add up to 3 legs
+    for (let i = 0; i < 3; i++) {
+      if (legs[i]) {
+        const legType = (legs[i]['Leg Type']||'').trim();
+        row.push(legType === 'Final' ? 'Final Delivery' : legType === 'Transfer' ? 'Hub Transfer' : legType);
+        row.push(legs[i]['From Location']||'');
+        row.push(legs[i]['To Location']||'');
+        row.push(legs[i]['Pickup Scan Date']||'');
+        row.push(legs[i]['Dropoff Scan Date']||'');
+      } else {
+        row.push('', '', '', '', '');
+      }
+    }
+    return row;
   });
-  document.getElementById('allPalletsBody').innerHTML = html;
+
+  // Generate CSV string
+  let csv = headers.map(h => '"' + h.replace(/"/g,'""') + '"').join(',') + '\n';
+  rows.forEach(row => {
+    csv += row.map(val => '"' + String(val).replace(/"/g,'""') + '"').join(',') + '\n';
+  });
+
+  // Download
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'frontier_pallets_' + type + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV exported (' + palletList.length + ' pallets)', 'success');
 }
 
 async function loadAllPallets() {
   if (!scriptUrl) { setStatus('disconnected', 'No URL — go to Settings'); return; }
   setStatus('pending', 'Loading...');
   try {
+    // First batch - core data
     const [palletsJson, legsJson, routesJson] = await Promise.all([
       jsonpRequest(scriptUrl, { action: 'read' }),
       jsonpRequest(scriptUrl, { action: 'readlegs' }),
       jsonpRequest(scriptUrl, { action: 'readroutes' })
+    ]);
+    // Second batch - supplementary data
+    const [historyJson, itemsJson, hubsJson] = await Promise.all([
+      jsonpRequest(scriptUrl, { action: 'readhistory' }),
+      jsonpRequest(scriptUrl, { action: 'readpalletitems' }),
+      jsonpRequest(scriptUrl, { action: 'readhubs' })
     ]);
     if (palletsJson.success) {
       setStatus('connected', 'Connected');
       allPallets = (palletsJson.data || []).sort((a,b) => new Date(b['Open Date']||0) - new Date(a['Open Date']||0));
       allLegsData = (legsJson.success ? legsJson.data : []);
       allRoutesData = (routesJson.success ? routesJson.data : []);
+      allHistoryData = (historyJson && historyJson.success) ? historyJson.data || [] : [];
+      allPalletItems = (itemsJson && itemsJson.success) ? itemsJson.data || [] : [];
+      allHubLocations = (hubsJson && hubsJson.success) ? hubsJson.data || [] : [];
       renderPizzaTracker();
       renderAllPallets();
     } else {
@@ -409,7 +640,7 @@ function jsonpRequest(url, params) {
     const qs = Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
     const sep = url.includes('?') ? '&' : '?';
     const fullUrl = url + sep + 'callback=' + cb + (qs ? '&' + qs : '');
-    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 15000);
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out')); }, 30000);
     function cleanup() { clearTimeout(timeout); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
     window[cb] = function(data) { cleanup(); resolve(data); };
     const s = document.createElement('script');
@@ -432,9 +663,14 @@ function showToast(msg, type) {
 
 function getStatusBadge(status) {
   const s = (status || '').toLowerCase();
-  if (s === 'open') return '<span class="badge badge-open">Open</span>';
-  if (s === 'closed') return '<span class="badge badge-closed">Closed</span>';
+  if (s === 'open') return '<span class="badge badge-open">Pallet Open</span>';
+  if (s === 'closed') return '<span class="badge badge-closed">Pallet Closed</span>';
+  if (s === 'routed') return '<span class="badge" style="background:#17a2b820;color:#17a2b8;">Routed</span>';
+  if (s === 'awaiting hub receipt') return '<span class="badge" style="background:#dc354520;color:#dc3545;">Awaiting Hub Receipt</span>';
+  if (s === 'transit to hub') return '<span class="badge" style="background:#fd7e1420;color:#fd7e14;">Transit to Hub</span>';
+  if (s === 'transit to final') return '<span class="badge" style="background:#e91e6320;color:#e91e63;">Transit to Final</span>';
   if (s === 'delivered') return '<span class="badge badge-delivered">Delivered</span>';
+  if (s === 'at hub') return '<span class="badge" style="background:#6f42c120;color:#6f42c1;">At Hub</span>';
   if (s.includes('transit')) return '<span class="badge badge-intransit">In Transit</span>';
   return '<span class="badge" style="background:#eee;color:#666;">' + escHtml(status) + '</span>';
 }
@@ -506,7 +742,7 @@ async function searchPalletById(pid) {
 
     const infoHtml = `
       <div class="info-item"><div class="label">Pallet ID</div><div class="value">${escHtml(pallet['Pallet ID'])}</div></div>
-      <div class="info-item"><div class="label">Status</div><div class="value">${getStatusBadge(pallet['Status'])}</div></div>
+      <div class="info-item"><div class="label">Status</div><div class="value">${getStatusBadge((() => { let st = pallet['Status']||''; const cat = getPizzaCategory(pallet); if (cat === 'routedPending') st = 'Routed'; else if (cat === 'awaitingReceipt') st = 'Awaiting Hub Receipt'; else if (cat === 'transitHub') st = 'Transit to Hub'; else if (cat === 'transitFinal') st = 'Transit to Final'; else if (st === 'Open') st = 'Pallet Open'; else if (st === 'Closed') st = 'Pallet Closed'; return st; })())}</div></div>
       <div class="info-item" style="grid-column:1/-1;"><div class="label">Origin</div><div class="value"><strong>${escHtml(pallet['Origin'])}</strong>${originAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(originAddr) + '</span>' : ''}</div></div>
       <div class="info-item" style="grid-column:1/-1;"><div class="label">Final Destination</div><div class="value"><strong>${escHtml(fdName)}</strong>${fdAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(fdAddr) + '</span>' : ''}</div></div>
       <div class="info-item"><div class="label">Opened By</div><div class="value">${escHtml(pallet['Opened By'] || '—')}</div></div>
@@ -516,6 +752,43 @@ async function searchPalletById(pid) {
       <div class="info-item"><div class="label">Current Location</div><div class="value">${escHtml(pallet['Current Location'] || '—')}</div></div>
     `;
     document.getElementById('palletInfo').innerHTML = infoHtml;
+
+    // Pizza tracker progress bar
+    const history = (historyRes.success ? historyRes.data : []);
+    const histActions = history.map(h => (h['Action']||'').toLowerCase());
+    const palletStatus = (pallet['Status']||'').trim();
+    const ptSteps = [
+      { label: 'Created', done: histActions.some(a => a.includes('created')) },
+      { label: 'Closed', done: histActions.some(a => a.includes('closed')) },
+      { label: 'Routed', done: histActions.some(a => a.includes('route assigned')) },
+      { label: 'Picked Up', done: histActions.some(a => a.includes('pickup scan')) },
+      { label: 'In Transit', done: palletStatus === 'In Transit' || histActions.some(a => a.includes('pickup scan')) },
+      { label: 'Delivered', done: palletStatus === 'Delivered' }
+    ];
+    let ptActiveIdx = -1;
+    for (let i = ptSteps.length - 1; i >= 0; i--) { if (ptSteps[i].done) { ptActiveIdx = i; break; } }
+
+    let ptHtml = '<div style="display:flex;align-items:center;padding:8px 0;">';
+    ptSteps.forEach((step, i) => {
+      const isComplete = step.done;
+      const isActive = (i === ptActiveIdx);
+      const dotColor = isComplete ? '#28a745' : '#ddd';
+      const dotBorder = isActive ? '3px solid #1a3a5c' : '2px solid ' + dotColor;
+      const labelColor = isComplete ? '#333' : '#bbb';
+      const labelWeight = isActive ? '700' : '400';
+      ptHtml += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;">';
+      ptHtml += '<div style="width:22px;height:22px;border-radius:50%;background:' + (isComplete ? '#28a745' : 'white') + ';border:' + dotBorder + ';display:flex;align-items:center;justify-content:center;">';
+      if (isComplete) ptHtml += '<span style="color:white;font-size:11px;font-weight:700;">✓</span>';
+      ptHtml += '</div>';
+      ptHtml += '<div style="font-size:9px;color:' + labelColor + ';font-weight:' + labelWeight + ';margin-top:4px;text-align:center;text-transform:uppercase;letter-spacing:0.3px;">' + step.label + '</div>';
+      ptHtml += '</div>';
+      if (i < ptSteps.length - 1) {
+        const lineColor = ptSteps[i + 1].done ? '#28a745' : '#ddd';
+        ptHtml += '<div style="flex:0.5;height:3px;background:' + lineColor + ';border-radius:2px;margin:0 -4px;margin-bottom:16px;"></div>';
+      }
+    });
+    ptHtml += '</div>';
+    document.getElementById('palletPizzaTracker').innerHTML = ptHtml;
 
     // Route / Legs
     const allLegs = (legsRes.success ? legsRes.data : []);
@@ -578,7 +851,6 @@ async function searchPalletById(pid) {
     document.getElementById('palletItemsSummary').innerHTML = itemsHtml;
 
     // History
-    const history = (historyRes.success ? historyRes.data : []);
     let histHtml = '';
     if (history.length === 0) {
       histHtml = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No history records</td></tr>';

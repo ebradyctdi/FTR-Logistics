@@ -9,7 +9,7 @@ Web-based transportation tracking tool for CTDI's Frontier operation. Tracks pal
 
 ## Current Apps Script URL
 ```
-https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec
+https://script.google.com/macros/s/AKfycbwv4__hrZ716OYCEv17rqPXm8JWYLydiq85jl6QE_3jlyw7TaJg_gEnHlHTsHqfzwjA/exec
 ```
 
 ## Architecture
@@ -26,20 +26,21 @@ https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7
 ### Tabs & Columns:
 | Tab | Columns |
 |-----|---------|
-| Pallets | Pallet ID, Origin, Description, Status, Opened By, Open Date, Closed By, Close Date, Current Location |
-| Pallet Build Info | Record Number, Pallet ID, Item Code, Item Description, Item Quantity, Item Serial Number, Date Added, Added By, Date Removed, Removed By, Status |
+| Pallets | Pallet ID, Origin, Description, Status, Opened By, Open Date, Closed By, Close Date, Current Location, Final Destination |
+| Pallet Build Info | Record Number, Pallet ID, MUSE Ticket, Description Note, Item Quantity, Item Serial Number, Date Added, Added By, Date Removed, Removed By, Status |
 | Routes | Pallet ID, Final Destination, Created By, Created Date |
 | Route Legs | Tracking Number, Pallet ID, Leg #, From Location, To Location, Leg Type, Status, Pickup Scan By, Pickup Scan Date, Dropoff Scan By, Dropoff Scan Date, Receipt Scan By, Receipt Scan Date |
 | Transaction History | Pallet ID, Timestamp, Action, Leg #, Location, User |
 | Hub Locations | Location ID, Name, Address, Location Type, Notes |
 | Exceptions | Pallet ID, Timestamp, Type, Note, Reported By, Status, Resolved By, Resolution Date |
 | Users | Username, Password, Email, Role |
-| Line Hauls | Line ID, Name, Starting Point, Stop 1-10, Created By, Created On, Last Edited, Edited By |
+| Line Hauls | Line ID, Name, Starting Point, Occurrence, Stop 1-10, Created By, Created On, Last Edited, Edited By |
 
 ## Key Identifiers
 - **Pallet ID:** PLB-000001 (sequential, auto-assigned)
 - **Tracking Number:** TRK-PLB000001-L1 (per-leg, auto-generated on route assignment)
 - **Location ID:** CV-CTDI, CT-FTR, FL-001, etc. (user-defined)
+- **Line ID:** L-001 (sequential, auto-assigned)
 
 ## Location Types
 - **Hub** — warehouses and cross-dock facilities (used as transfer points and origins)
@@ -48,32 +49,45 @@ https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7
 ## Pallet Statuses (in Google Sheet)
 - Open, Closed, In Transit, At Hub, Delivered, On Hold
 
-## Pizza Tracker Categories (7 stages displayed in UI)
-1. Open Pallets (blue #0d6efd)
-2. Closed Awaiting Routing (gray #6c757d) — Closed, no route assigned
-3. Routed Awaiting Pickup (cyan #17a2b8) — Closed, route assigned, first leg Pending
-4. In Transit to Hub (orange #fd7e14) — In Transit, active leg is Transfer type
-5. At Crossdock Hub (purple #6f42c1) — At Hub status
-6. In Transit to Final (pink #e91e63) — In Transit, active leg is Final type
-7. Delivered (green #28a745) — Delivered status
+## Pallet Display Statuses (in UI)
+- Pallet Open (blue #0d6efd)
+- Pallet Closed (gray #6c757d) — Closed, no route assigned
+- Routed (cyan #17a2b8) — Closed, route assigned, first leg Pending
+- Transit to Hub (orange #fd7e14) — In Transit, active leg is Transfer type
+- Awaiting Hub Receipt (red #dc3545) — In Transit, leg is Dropped Off but not receipt-scanned
+- At Hub (purple #6f42c1) — At Hub status (receipt confirmed)
+- Transit to Final (pink #e91e63) — In Transit, active leg is Final type
+- Delivered (green #28a745) — Delivered status
+
+## MUSE Ticket Statuses (derived from pallet statuses)
+- **In Process** — no pallets for that ticket are delivered
+- **Partially Delivered** — at least one pallet is delivered but not all
+- **Delivered** — all pallets with that ticket are delivered
 
 ## Route Structure
-- Each pallet has one Route (final destination name from Routing Locations)
+- Each pallet has one Route (final destination)
 - Each route has 1+ Legs
 - Leg Types: Transfer (to hub), Final (to end destination)
-- Routing is simplified: pick Final Destination from dropdown + optionally add hub transfers
+- Final Destination is set at pallet creation (editable while open), pre-filled on routing page (read-only)
+- Custom destinations supported: stored as "Name | Street, City, State ZIP"
 
 ## Leg Scan Model
 Each leg has up to 3 scans:
-- **Pickup Scan** — Driver picks up (Leg → In Transit). Requires operator name + location.
+- **Pickup Scan** — Driver picks up (Leg → In Transit). Operator name entered in confirmation popup.
 - **Dropoff Scan** — Driver drops off (Transfer → Dropped Off, Final → Complete/Delivered). Defaults to pickup driver.
-- **Receipt Scan** — Hub receiver confirms (Transfer legs only → Complete)
+- **Receipt Scan** — Hub receiver confirms (Transfer legs only → Complete). Shows expected location with full address.
+
+## Scan Page Validation
+- **Pickup Scan** — rejects pallets not in "awaiting pickup" state (all prior legs must be Complete)
+- **Dropoff Scan** — rejects pallets not currently "In Transit"
+- **Hub Receipt Scan** — rejects pallets not in "Dropped Off" state
+- All scan pages auto-refresh their tables after successful scan
 
 ## Leg Statuses
 - Pending, In Transit, Dropped Off, Complete
 
 ## Transaction History Actions
-- Created, Closed, Reopened, Route Assigned, Pickup Scan, Dropoff Scan, Receipt Scan, Delivered, Exception Reported, Hold, Hold Released
+- Pallet Created, Pallet Closed, Reopened, Route Assigned, Route Removed, Pickup Scan, Dropoff Scan, Receipt Scan, Delivered, Exception Reported, Hold, Hold Released
 
 ## Business Context
 - Origin: CTDI Coatesville, PA
@@ -81,116 +95,117 @@ Each leg has up to 3 scans:
 - Final Locations: ~20 sites in CT (Stratford, Bridgeport, Norwalk, Waterbury, etc.)
 - Typical flow: Coatesville → CT Hub → Final Location
 - Routes are organized by day of week (Monday-Friday delivery schedules)
+- MUSE Tickets track customer product across pallets
 
 ## Pages & Navigation (Sidebar)
 ```
 ▶ Views
-  - overview.html (🏠 Overview — pizza tracker cards + recent activity + quick links)
-  - pallet-tracker.html (🔍 Pallet Tracker — all pallets table, status filter, detail modal)
+  - pallet-tracker.html (🔍 Pallet Tracker — active/delivered tables, pizza tracker cards, detail modal with progress bar)
+  - muse-tracker.html (🎫 MUSE Tracker — track MUSE tickets across pallets, pizza tracker progress)
 ▶ Pallet Build
-  - pallet-build.html (🔨 Pallet Build — create, add items, close, reopen, print label)
+  - pallet-build.html (🔨 Pallet Build — create pallet popup, add MUSE tickets, close, reopen, print label)
 ▶ Logistics
-  - routing.html (🗺️ Routing — simplified: pick final dest dropdown + add hub transfers)
-  - packing-documents.html (📄 Packing Documents — print labels, BOLs, next stop labels)
-  - pickup-scan.html (🚚 Pickup Scan — with searchable location, operator name, confirmation)
-  - dropoff-scan.html (📍 Dropoff Scan — with confirmation showing destination)
-  - receipt-scan.html (✅ Hub Receipt Scan — for hub receivers)
-  - line-hauls.html (🛣️ Line Hauls — define delivery lines, view waiting pallets)
+  - routing.html (🗺️ Routing — assign routes, final dest pre-filled from pallet, read-only)
+  - packing-documents.html (📄 Packing Documents — labels, BOLs, details modal, collapsible delivered)
+  - pickup-scan.html (🚚 Pickup Scan — validation, full address preview, confirmation)
+  - dropoff-scan.html (📍 Dropoff Scan — validation, full address, confirmation)
+  - receipt-scan.html (✅ Hub Receipt Scan — validation, expected location with address)
 ▶ Exceptions
   - report-exception.html (⚠️ Report Exception)
   - open-exceptions.html (🚨 Open Exceptions)
 ▶ System
-  - hub-locations.html (🏭 Routing Locations — manage hubs + final locations, type filter)
   - settings.html (⚙️ Settings — Apps Script URL + Google Sheet URL)
+  - hub-locations.html (🏭 Routing Locations — manage hubs + final locations)
+  - line-hauls.html (🛣️ Line Hauls — define delivery lines, day picker, view waiting pallets)
 ```
 
 ## Key Features per Page
 
+### Pallet Tracker (pallet-tracker.html)
+- 7 KPI cards at top (clickable to filter): Open, Closed Awaiting Routing, Routed Awaiting Pickup, Transit to Hub, Awaiting Hub Receipt, At Crossdock Hub, Transit to Final
+- Active Pallets table with count badge, filter, status dropdown, Export CSV
+- Delivered Pallets table (collapsible, hidden by default) with Export CSV
+- Detail modal: pizza tracker progress bar, pallet info with full addresses, items, route legs, transaction history
+- CSV export includes: Pallet ID, Status, Origin + Address, Final Dest + Address, MUSE Tickets, Legs 1-3 details
+
+### MUSE Tracker (muse-tracker.html)
+- 3 KPI cards: In Process, Partially Delivered, Delivered (clickable)
+- Active MUSE Tickets table with filter, status dropdown, Export CSV
+- Delivered MUSE Tickets table (collapsible, hidden by default) with Export CSV
+- Detail modal: summary (# pallets, delivered count, overall status), per-pallet pizza tracker progress bars with full addresses, collapsible timelines
+- CSV export includes: MUSE ID, Status, # Pallets, per-pallet details (up to 6)
+
 ### Pallet Build (pallet-build.html)
-- Operator Name field at top (persists, required for all actions)
-- Create New Pallet (origin dropdown shows hub Names only)
-- Open Pallets table with Build/Review, Print, Close buttons
-- Build modal: Add items with "Added By" field (Item Code, Description, Qty, Serial)
-- Close/Reopen confirmation modals
-- Print Label modal (4×6, CODE128 barcode, CTDI logo)
-- Closed Pallets Not Shipped table with Details, Print, Reopen buttons
+- Operator Name + "Create Pallet" button at top
+- Create Pallet popup: Origin (hubs only), Final Destination (existing or custom address), Description
+- Open Pallets table with Final Destination column, Build/Review, Print, Close
+- Build modal: Origin & Final Dest cards with Edit buttons (editable while open), MUSE Ticket # + Description/Note + Serial # fields
+- Closed Pallets table (filterable) with Details, Print, Reopen
+- Pallet Label: B&W optimized 4×6, CTDI logo, barcode, origin/dest with addresses, MUSE tickets list
 
 ### Routing (routing.html)
-- Shows closed pallets without routes
-- Simplified route assignment modal:
-  - Final Destination: searchable autocomplete (shows "Location ID - Name")
-  - "Add Hub Transfer" button in route preview (can add multiple)
-  - Each hub transfer has dropdown (Hub-type locations) + remove button
-  - Route preview updates live
-- One-click assign
+- "Pallets Awaiting Routing" table with # of Items column
+- Route assignment modal: Final Destination (read-only, from pallet), Route Preview with addresses
+- Add Hub Transfer stops, one-click assign
 
 ### Packing Documents (packing-documents.html)
-- Shows pallets in Closed, In Transit, At Hub, and Delivered states
-- Status column with color-coded badges
-- Filters: text search + status dropdown
-- Print Label (4×6 pallet label)
-- Print BOL (8.5×11, per-leg, with leg selector for multi-leg pallets)
-- Next Stop Label (4×6, shows deliver-to/ship-from with full addresses)
-- BOL includes: tracking # with scannable barcode, from/to addresses, pallet info, contents table, signature lines, leg badge in top-right
+- Active Orders table with display statuses matching Pallet Tracker
+- Status filter dropdown: Pallet Closed, Routed, Transit to Hub, Awaiting Hub Receipt, At Hub, Transit to Final
+- Details popup: origin/dest with addresses, route legs, MUSE tickets, remove routing button
+- Delivered Orders (collapsible, hidden by default)
+- BOL: shipment info, from/to with full addresses (including custom), contents table, signatures
+- Pallet Label: same format as Pallet Build (4×6, B&W, 0.2in top margin for printer safe area)
 
-### Scan Pages
-- All have confirmation popups before executing
-- Pickup: searchable location autocomplete (Hub types only) + "Picked Up By" name field
-- Dropoff: shows destination, "Dropped Off By" defaults to pickup driver (editable)
-- Receipt: shows "Received By"
-- All show tables of pallets in relevant state (awaiting pickup / in transit / dropped off)
+### Line Hauls (line-hauls.html)
+- Define delivery lines with: auto-generated Line ID, Name, Starting Point (hub), Occurrence (day picker M-F), Stops (any location type)
+- Shows waiting pallet count per line
+- View detail: pallets grouped by stop
+- Create/Edit with confirmation popup (operator name required)
+- Delete with confirmation
 
-### Routing Locations (hub-locations.html)
-- Title: "Routing Locations"
-- Table with Location Type filter dropdown + text search (name/address/ID)
-- Location Type badges: green "Hub", blue "Final Location"
-- Add New Location modal (with Location Type dropdown)
-- Edit modal (pre-populated, Location ID not editable)
-- Address stored as combined string "Street, City, State ZIP"
+### Scan Pages (pickup-scan, dropoff-scan, receipt-scan)
+- All validate pallet ID against expected state before showing confirmation
+- All show full addresses in confirmation popup
+- All auto-refresh tables after successful scan
+- Pickup: shows pickup location + destination with addresses
+- Dropoff: shows dropoff location with full address, defaults to pickup driver
+- Receipt: shows expected location (ID + Name + Address)
 
 ## Printable Documents
-1. **Pallet Label** (4×6) — CTDI logo, Pallet ID, barcode, status (OPEN/CLOSED), origin+address, items count, dates (centered grid cells)
-2. **Bill of Lading** (8.5×11) — per-leg, tracking # with scannable barcode, leg badge top-right, from/to with addresses, pallet info, contents table, signatures
-3. **Next Stop Label** (4×6) — color-coded (orange=Transfer, pink=Final), deliver-to/ship-from with full addresses, leg badge, tracking number
+1. **Pallet Label** (4×6) — B&W optimized, CTDI logo, Pallet ID, barcode, status, origin/dest with formatted addresses, MUSE tickets list, 0.2in top margin
+2. **Bill of Lading** (8.5×11) — per-leg, tracking # with barcode, leg badge, from/to with addresses (supports custom), contents table, signatures
+3. **Next Stop Label** (4×6) — B&W monochrome, inverted header rows with Location IDs, deliver-to/ship-from with addresses
 
 ## Technical Conventions
 - **localStorage keys:** `fs_script_url`, `fs_sheet_url`, `fs_username`
-- **JSONP callback pattern** (same as FWA/AWAT apps)
+- **JSONP callback pattern** with 30s timeout on pallet-tracker, 15s elsewhere
 - **Timestamps:** Apps Script writes `M/d/yyyy H:mm:ss` using `getSpreadsheetTimeZone()`
-- **_cellToString:** Converts Date objects using spreadsheet timezone
-- **fmtDate:** Regex parses `M/d/yyyy H:mm:ss` → `M/d/yyyy, h:mm AM/PM` (includes year)
-- **Confirmation modals** on all scan actions and close/reopen
-- **Loading spinners** on pages with async data fetch
-- **Hub address lookup:** `getHubAddress(name)` uses partial matching (contains)
-- **Searchable autocomplete** pattern for location selection (routing + pickup scan)
+- **fmtDate:** Handles both `M/d/yyyy H:mm:ss` and full Date strings → `M/d/yyyy, h:mm AM/PM`
+- **formatLabelAddress:** Splits address into Street / City, State / ZIP on separate lines
+- **Confirmation modals** on all scan actions, close/reopen, and line haul saves
+- **Pizza tracker progress bars** on Pallet Tracker detail and MUSE Tracker detail modals
+- **Collapsible sections** for delivered tables (hidden by default)
+- **Export CSV** on both Pallet Tracker and MUSE Tracker tables
 - **JsBarcode** (CODE128) for barcodes on labels and BOLs
-- **Print:** window.open with @page size rules (4×6 or 8.5×11)
-
-## Design Style
-- Dark navy sidebar (#1a3a5c) with CTDI white logo
-- Brand subtitle: "Frontier Shipping"
-- Responsive (mobile sidebar toggle with hamburger)
-- Status indicator (green/red/orange dot)
-- Toast notifications (green success, red error, orange warning)
-- Modal popups for detail/edit/confirm
-- Slim navy scrollbar on modals
-- Labels: B&W optimized (CTDI logo with filter:invert(1))
-- Buttons: navy (primary), teal (print), red (close/remove), orange (reopen/next stop)
+- **Print:** window.open with @page size rules (4×6 with 0.2in top margin, or 8.5×11)
 
 ## Apps Script Actions Reference
 | Action | Purpose | Key Params |
 |--------|---------|------------|
-| read | Read all pallets | — |
-| createpallet | Create new pallet | origin, description, user |
+| read | Read all pallets (10 cols incl Final Destination) | — |
+| createpallet | Create new pallet | origin, finaldest, description, user |
 | closepallet | Close/seal pallet | palletid, user |
 | reopenpallet | Reopen closed pallet | palletid, user |
+| updatepalletorigin | Update pallet origin | palletid, origin, user |
+| updatepalletfinaldest | Update pallet final destination | palletid, finaldest, user |
 | readhubs | Read all locations (hubs + final) | — |
 | addhub | Add location | locationid, name, address, locationtype, notes |
 | updatehub | Edit location | row, name, address, locationtype, notes |
 | assignroute | Assign route to pallet | palletid, finaldest, legs (JSON), user |
+| removerouting | Delete route and legs for pallet | palletid, user |
 | readroutes | Read all routes | — |
 | readlegs | Read all route legs (14 cols) | — |
-| pickupscan | Pickup scan | palletid, user |
+| pickupscan | Pickup scan (logs location) | palletid, user |
 | dropoffscan | Dropoff scan | palletid, user |
 | receiptscan | Hub receipt scan | palletid, user |
 | readpalletitems | Read pallet build items | palletid (optional filter) |
@@ -204,8 +219,8 @@ Each leg has up to 3 scans:
 | login | Authenticate user | username, password |
 | createuser | Create user account | username, password, email, role |
 | readlinehauls | Read all line hauls | — |
-| addlinehaul | Create a new line haul | lineid, name, startingpoint, stops (JSON), user |
-| updatelinehaul | Edit a line haul | row, name, startingpoint, stops (JSON), user |
+| addlinehaul | Create a new line haul | lineid, name, startingpoint, occurrence, stops (JSON), user |
+| updatelinehaul | Edit a line haul | row, name, startingpoint, occurrence, stops (JSON), user |
 | deletelinehaul | Delete a line haul | row |
 
 ## Route Legs Column Mapping (Important!)
@@ -219,3 +234,4 @@ Data indexes (0-based): [0]=Tracking, [1]=Pallet ID, [2]=Leg#, [3]=From, [4]=To,
 - generate-sheet.html — one-time setup tool
 - Frontier_Shipping_Template.xlsx — one-time setup tool
 - login.html — exists but bypassed currently
+- overview.html — removed from nav, legacy

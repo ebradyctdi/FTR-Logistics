@@ -128,7 +128,7 @@ function doGet(e) {
       var now = new Date();
       var ts = _ts(now);
       palletSheet.appendRow([palletId, origin, description, 'Open', user, ts, '', '', origin, finalDest]);
-      _logTransaction(ss, palletId, 'Created', '', origin, user);
+      _logTransaction(ss, palletId, 'Pallet Created', '', origin, user);
       return _respond({ success: true, palletId: palletId, openDate: ts }, callback);
     }
 
@@ -151,7 +151,7 @@ function doGet(e) {
       palletSheet.getRange(row, 4).setValue('Closed');
       palletSheet.getRange(row, 7).setValue(user);
       palletSheet.getRange(row, 8).setValue(ts);
-      _logTransaction(ss, palletId, 'Closed', '', '', user);
+      _logTransaction(ss, palletId, 'Pallet Closed', '', '', user);
       return _respond({ success: true, palletId: palletId, closeDate: ts }, callback);
     }
 

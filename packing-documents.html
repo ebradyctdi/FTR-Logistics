@@ -76,7 +76,6 @@
   <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
   <div class="sidebar-nav">
     <div class="nav-section">Views</div>
-    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
     <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
@@ -111,19 +110,29 @@
         <input type="text" id="filterInput" placeholder="Filter by Pallet ID, Origin, or Description..." autocomplete="off" style="flex:1;min-width:200px;">
         <select id="filterStatus" onchange="renderTable()" style="padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:white;">
           <option value="">All Active</option>
-          <option value="Closed">Closed</option>
-          <option value="In Transit">In Transit</option>
+          <option value="Pallet Closed">Pallet Closed</option>
+          <option value="Routed">Routed</option>
+          <option value="Transit to Hub">Transit to Hub</option>
+          <option value="Awaiting Hub Receipt">Awaiting Hub Receipt</option>
           <option value="At Hub">At Hub</option>
+          <option value="Transit to Final">Transit to Final</option>
         </select>
       </div>
       <div id="tableWrap"><div class="empty-state">Loading...</div></div>
     </div>
     <div class="card">
-      <h2>Delivered Orders</h2>
-      <div class="filter-bar" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-        <input type="text" id="filterDelivered" placeholder="Filter by Pallet ID, Origin, or Description..." autocomplete="off" oninput="renderDeliveredTable()" style="flex:1;min-width:200px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleDeliveredSection()">
+        <h2 style="margin-bottom:0;border:none;padding:0;">Delivered Orders</h2>
+        <button id="deliveredToggleBtn" style="padding:6px 14px;background:#e9ecef;color:#333;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">Show Delivered</button>
       </div>
-      <div id="deliveredTableWrap"><div class="empty-state">Loading...</div></div>
+      <div id="deliveredSection" style="display:none;margin-top:16px;">
+        <div style="border-top:2px solid #1a3a5c;padding-top:16px;">
+          <div class="filter-bar" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="filterDelivered" placeholder="Filter by Pallet ID, Origin, or Description..." autocomplete="off" oninput="renderDeliveredTable()" style="flex:1;min-width:200px;">
+          </div>
+          <div id="deliveredTableWrap"><div class="empty-state">Loading...</div></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -209,7 +218,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwv4__hrZ716OYCEv17rqPXm8JWYLydiq85jl6QE_3jlyw7TaJg_gEnHlHTsHqfzwjA/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -323,9 +332,33 @@ function getPalletItems(palletId) {
 }
 
 function getStatusBadge(status) {
-  const colors = { 'Closed':'#6c757d', 'In Transit':'#fd7e14', 'At Hub':'#6f42c1', 'Delivered':'#28a745' };
+  const colors = { 'Pallet Open':'#0d6efd', 'Pallet Closed':'#6c757d', 'Closed':'#6c757d', 'Routed':'#17a2b8', 'Transit to Hub':'#fd7e14', 'Awaiting Hub Receipt':'#dc3545', 'At Hub':'#6f42c1', 'Transit to Final':'#e91e63', 'In Transit':'#fd7e14', 'Delivered':'#28a745' };
   const color = colors[status] || '#888';
   return '<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + color + '20;color:' + color + ';">' + escHtml(status) + '</span>';
+}
+
+function getDisplayStatus(p) {
+  const status = (p['Status']||'').trim();
+  const pid = (p['Pallet ID']||'').trim();
+  if (status === 'Closed') {
+    const hasRoute = routes.some(r => (r['Pallet ID']||'').trim() === pid);
+    if (hasRoute) {
+      const pLegs = legs.filter(l => (l['Pallet ID']||'').trim() === pid);
+      const hasPending = pLegs.some(l => (l['Status']||'').trim() === 'Pending');
+      if (hasPending) return 'Routed';
+    }
+    return 'Pallet Closed';
+  }
+  if (status === 'In Transit') {
+    const pLegs = legs.filter(l => (l['Pallet ID']||'').trim() === pid);
+    const droppedOff = pLegs.find(l => (l['Status']||'').trim() === 'Dropped Off');
+    if (droppedOff) return 'Awaiting Hub Receipt';
+    const activeLeg = pLegs.find(l => (l['Status']||'').trim() === 'In Transit');
+    if (activeLeg && (activeLeg['Leg Type']||'').trim() === 'Final') return 'Transit to Final';
+    return 'Transit to Hub';
+  }
+  if (status === 'Open') return 'Pallet Open';
+  return status;
 }
 
 function renderTable() {
@@ -335,7 +368,7 @@ function renderTable() {
   
   let filtered = allShippable;
   if (statusFilter) {
-    filtered = filtered.filter(p => (p['Status']||'').trim() === statusFilter);
+    filtered = filtered.filter(p => getDisplayStatus(p) === statusFilter);
   }
   if (textFilter) {
     filtered = filtered.filter(p => {
@@ -362,7 +395,7 @@ function renderTable() {
     html += '<td><strong style="font-family:Consolas,monospace;">' + escHtml(pid) + '</strong></td>';
     html += '<td>' + escHtml(p['Origin']||'—') + '</td>';
     html += '<td class="text-center">' + itemCount + '</td>';
-    html += '<td>' + getStatusBadge(status) + '</td>';
+    html += '<td>' + getStatusBadge(getDisplayStatus(p)) + '</td>';
     html += '<td>' + escHtml(currentLoc) + '</td>';
     html += '<td class="text-center"><span class="badge ' + (routed ? 'badge-green' : 'badge-gray') + '">' + (routed ? 'Yes' : 'No') + '</span></td>';
     html += '<td><button class="btn" style="background:#6c757d;color:white;" onclick="openPalletDetails(\'' + escHtml(pid) + '\')">Details</button>';
@@ -375,6 +408,18 @@ function renderTable() {
 }
 
 document.getElementById('filterInput').addEventListener('input', renderTable);
+
+function toggleDeliveredSection() {
+  const section = document.getElementById('deliveredSection');
+  const btn = document.getElementById('deliveredToggleBtn');
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    btn.textContent = 'Hide Delivered';
+  } else {
+    section.style.display = 'none';
+    btn.textContent = 'Show Delivered';
+  }
+}
 
 function renderDeliveredTable() {
   const delivered = getDeliveredPallets();
@@ -615,7 +660,15 @@ function openBolPreview(palletId, leg, legNum, totalLegs) {
   const toLoc = leg['To Location'] || '—';
   const legType = leg['Leg Type'] || '—';
   const fromAddr = getHubAddress(fromLoc);
-  const toAddr = getHubAddress(toLoc);
+  // For toAddr, check hub locations first, then fall back to pallet's Final Destination custom address
+  let toAddr = getHubAddress(toLoc);
+  if (!toAddr && p['Final Destination'] && p['Final Destination'].includes('|')) {
+    const fdParts = p['Final Destination'].split('|');
+    const fdName = fdParts[0].trim();
+    if (fdName.toLowerCase() === toLoc.toLowerCase()) {
+      toAddr = fdParts[1] ? fdParts[1].trim() : '';
+    }
+  }
   const trackingNum = 'TRK-' + palletId.replace('PLB-', 'PLB') + '-L' + legNum;
 
   document.getElementById('bolSubtitle').textContent = 'Leg ' + legNum + ' of ' + totalLegs;
@@ -676,28 +729,6 @@ function openBolPreview(palletId, leg, legNum, totalLegs) {
           <div>
             <div style="font-size:10px;color:#888;text-transform:uppercase;">Date Printed</div>
             <div style="font-size:13px;font-weight:600;margin-top:2px;">${now}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px;">
-        <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin-bottom:10px;text-transform:uppercase;">Pallet Information</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase;">Origin</div>
-            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(p['Origin']||'—')}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase;">Description</div>
-            <div style="font-size:13px;font-weight:600;margin-top:2px;">${escHtml(p['Description']||'—')}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase;">Open Date</div>
-            <div style="font-size:13px;font-weight:600;margin-top:2px;">${fmtDate(p['Open Date']||'')}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase;">Close Date</div>
-            <div style="font-size:13px;font-weight:600;margin-top:2px;">${fmtDate(p['Close Date']||'')}</div>
           </div>
         </div>
       </div>
@@ -786,7 +817,13 @@ function openNextStopLabel(palletId) {
   const legType = nextLeg['Leg Type'] || '';
   const legNum = nextLeg['Leg #'] || '1';
   const totalLegs = pLegs.length;
-  const toAddress = getHubAddress(toLoc);
+  const toAddress = getHubAddress(toLoc) || (() => {
+    if (p && p['Final Destination'] && p['Final Destination'].includes('|')) {
+      const parts = p['Final Destination'].split('|');
+      if (parts[0].trim().toLowerCase() === toLoc.toLowerCase()) return parts[1] ? parts[1].trim() : '';
+    }
+    return '';
+  })();
   const fromAddress = getHubAddress(fromLoc);
   const toLocId = getHubLocationId(toLoc);
   const fromLocId = getHubLocationId(fromLoc);

@@ -36,7 +36,6 @@
   <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
   <div class="sidebar-nav">
     <div class="nav-section">Views</div>
-    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
     <a href="muse-tracker.html" class="active"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
@@ -65,32 +64,47 @@
     </div>
   </div>
   <div class="container">
+    <!-- KPI Cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;" id="museKpiRow">
+      <div class="kpi" style="border-top:4px solid #fd7e14;padding:14px 10px;cursor:pointer;background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);text-align:center;" onclick="filterMuseByStatus('In Process')"><div style="font-size:32px;font-weight:700;" id="mkInProcess">—</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">In Process</div></div>
+      <div class="kpi" style="border-top:4px solid #6f42c1;padding:14px 10px;cursor:pointer;background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);text-align:center;" onclick="filterMuseByStatus('Partially Delivered')"><div style="font-size:32px;font-weight:700;" id="mkPartial">—</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">Partially Delivered</div></div>
+      <div class="kpi" style="border-top:4px solid #28a745;padding:14px 10px;cursor:pointer;background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);text-align:center;" onclick="filterMuseByStatus('Delivered')"><div style="font-size:32px;font-weight:700;" id="mkDelivered">—</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">Delivered</div></div>
+    </div>
+
     <div class="card">
-      <h2>Active MUSE Tickets</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;">
+        <h2 style="margin-bottom:0;border:none;padding:0;">Active MUSE Tickets <span id="museActiveBadge" style="font-size:14px;font-weight:700;color:white;background:#1a3a5c;padding:2px 10px;border-radius:12px;margin-left:8px;"></span></h2>
+        <button onclick="exportMuseCSV('active')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">📥 Export CSV</button>
+      </div>
+      <div style="border-bottom:2px solid #1a3a5c;margin-bottom:16px;padding-bottom:8px;"></div>
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
         <input type="text" id="museFilter" placeholder="Search by MUSE Ticket #..." oninput="renderMuseTables()" autocomplete="off" style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
         <select id="museStatusFilter" onchange="renderMuseTables()" style="padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:white;">
           <option value="">All Active</option>
-          <option value="Open">Open</option>
-          <option value="Closed">Closed</option>
-          <option value="In Transit">In Transit</option>
-          <option value="At Hub">At Hub</option>
+          <option value="In Process">In Process</option>
+          <option value="Partially Delivered">Partially Delivered</option>
         </select>
         <span id="museActiveCount" style="font-size:12px;color:#888;white-space:nowrap;"></span>
       </div>
       <div id="museActiveTableWrap"><div style="color:#999;font-size:13px;text-align:center;padding:20px;">Loading...</div></div>
     </div>
     <div class="card">
-      <h2>Delivered MUSE Tickets</h2>
-      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
-        <input type="text" id="museDeliveredFilter" placeholder="Search by MUSE Ticket #..." oninput="renderMuseTables()" autocomplete="off" style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
-        <span id="museDeliveredCount" style="font-size:12px;color:#888;white-space:nowrap;"></span>
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleMuseDelivered()">
+        <h2 style="margin-bottom:0;border:none;padding:0;">Delivered MUSE Tickets <span id="museDeliveredBadge" style="font-size:14px;font-weight:700;color:white;background:#28a745;padding:2px 10px;border-radius:12px;margin-left:8px;"></span></h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="event.stopPropagation();exportMuseCSV('delivered')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">📥 Export CSV</button>
+          <button id="museDeliveredToggleBtn" onclick="event.stopPropagation();toggleMuseDelivered()" style="padding:6px 14px;background:#e9ecef;color:#333;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">Show Delivered</button>
+        </div>
       </div>
-      <div id="museDeliveredTableWrap"><div style="color:#999;font-size:13px;text-align:center;padding:20px;">Loading...</div></div>
-    </div>
-    <div class="card" id="museDetailCard" style="display:none;">
-      <h2 id="museDetailTitle">MUSE Ticket Details</h2>
-      <div id="museDetailContent"></div>
+      <div id="museDeliveredSection" style="display:none;margin-top:16px;">
+        <div style="border-top:2px solid #1a3a5c;padding-top:16px;">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+            <input type="text" id="museDeliveredFilter" placeholder="Search by MUSE Ticket #..." oninput="renderMuseTables()" autocomplete="off" style="flex:1;min-width:200px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
+            <span id="museDeliveredCount" style="font-size:12px;color:#888;white-space:nowrap;"></span>
+          </div>
+          <div id="museDeliveredTableWrap"><div style="color:#999;font-size:13px;text-align:center;padding:20px;">Loading...</div></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -137,7 +151,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwv4__hrZ716OYCEv17rqPXm8JWYLydiq85jl6QE_3jlyw7TaJg_gEnHlHTsHqfzwjA/exec'; } catch(e) {}
 
 let _jsonpCounter = 0;
 function jsonpRequest(url, params) {
@@ -172,14 +186,16 @@ async function loadData() {
   document.getElementById('statusDot').className = 'status-dot pending';
   document.getElementById('statusLabel').textContent = 'Loading...';
   try {
-    const [itemsJson, palletsJson, hubsJson] = await Promise.all([
+    const [itemsJson, palletsJson, hubsJson, legsJson] = await Promise.all([
       jsonpRequest(scriptUrl, { action: 'readpalletitems' }),
       jsonpRequest(scriptUrl, { action: 'read' }),
-      jsonpRequest(scriptUrl, { action: 'readhubs' })
+      jsonpRequest(scriptUrl, { action: 'readhubs' }),
+      jsonpRequest(scriptUrl, { action: 'readlegs' })
     ]);
     if (itemsJson.success) allItems = itemsJson.data || [];
     if (palletsJson.success) allPallets = palletsJson.data || [];
     if (hubsJson && hubsJson.success) allHubLocations = hubsJson.data || [];
+    if (legsJson && legsJson.success) window._allLegsData = legsJson.data || [];
     buildMuseTickets();
     document.getElementById('statusDot').className = 'status-dot connected';
     document.getElementById('statusLabel').textContent = 'Ready';
@@ -214,18 +230,151 @@ function buildMuseTickets() {
 }
 
 function getOverallStatus(pallets) {
-  if (pallets.every(p => p.status === 'Delivered')) return 'Delivered';
-  if (pallets.some(p => p.status === 'In Transit')) return 'In Transit';
-  if (pallets.some(p => p.status === 'At Hub')) return 'At Hub';
-  if (pallets.some(p => p.status === 'Closed')) return 'Closed';
-  if (pallets.some(p => p.status === 'Open')) return 'Open';
-  return pallets[0] ? pallets[0].status : '—';
+  const allDelivered = pallets.every(p => p.status === 'Delivered');
+  const someDelivered = pallets.some(p => p.status === 'Delivered');
+  if (allDelivered) return 'Delivered';
+  if (someDelivered) return 'Partially Delivered';
+  return 'In Process';
 }
 
 function getStatusBadge(status) {
-  const colors = { 'Open':'#0d6efd', 'Closed':'#6c757d', 'In Transit':'#fd7e14', 'At Hub':'#6f42c1', 'Delivered':'#28a745', 'On Hold':'#dc3545' };
+  const colors = { 'In Process':'#fd7e14', 'Partially Delivered':'#6f42c1', 'Delivered':'#28a745' };
   const color = colors[status] || '#888';
   return '<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + color + '20;color:' + color + ';">' + escHtml(status) + '</span>';
+}
+
+function exportMuseCSV(type) {
+  // Get filtered tickets based on type
+  let ticketList;
+  if (type === 'active') {
+    const filter = (document.getElementById('museFilter').value || '').trim().toLowerCase();
+    const statusFilter = document.getElementById('museStatusFilter').value;
+    ticketList = museTickets.filter(m => getOverallStatus(m.pallets) !== 'Delivered');
+    if (filter) ticketList = ticketList.filter(m => m.ticket.toLowerCase().includes(filter));
+    if (statusFilter) ticketList = ticketList.filter(m => getOverallStatus(m.pallets) === statusFilter);
+  } else {
+    const filter = (document.getElementById('museDeliveredFilter').value || '').trim().toLowerCase();
+    ticketList = museTickets.filter(m => getOverallStatus(m.pallets) === 'Delivered');
+    if (filter) ticketList = ticketList.filter(m => m.ticket.toLowerCase().includes(filter));
+  }
+
+  if (ticketList.length === 0) { showToast('No tickets to export', 'error'); return; }
+
+  // Build headers: MUSE ID, Status, # of Pallets, then Pallet 1-6 fields
+  const headers = ['MUSE ID', 'Overall MUSE Status', '# of Pallets'];
+  for (let i = 1; i <= 6; i++) {
+    headers.push('Pallet ' + i + ' - ID');
+    headers.push('Pallet ' + i + ' - Status');
+    headers.push('Pallet ' + i + ' - Origin');
+    headers.push('Pallet ' + i + ' - Final Destination');
+    headers.push('Pallet ' + i + ' - Creation Date');
+    headers.push('Pallet ' + i + ' - Pickup Date');
+    headers.push('Pallet ' + i + ' - Delivered Date');
+  }
+
+  // Helper to get address
+  function getAddr(name) {
+    if (!name) return '';
+    const n = name.trim().toLowerCase();
+    let hub = allHubLocations.find(h => (h['Name']||'').trim().toLowerCase() === n);
+    if (!hub) hub = allHubLocations.find(h => (h['Name']||'').toLowerCase().includes(n) || n.includes((h['Name']||'').toLowerCase()));
+    return hub ? (hub['Address']||'') : '';
+  }
+
+  const rows = ticketList.map(m => {
+    const row = [
+      m.ticket,
+      getOverallStatus(m.pallets),
+      m.pallets.length
+    ];
+
+    for (let i = 0; i < 6; i++) {
+      if (m.pallets[i]) {
+        const p = m.pallets[i];
+        const pallet = allPallets.find(pl => (pl['Pallet ID']||'').trim() === p.palletId);
+        
+        // Get origin with address
+        const originName = p.origin || '';
+        const originAddr = getAddr(originName);
+        const originFull = originAddr ? originName + ', ' + originAddr : originName;
+
+        // Get final dest with address
+        let fdName = p.finalDest || '';
+        let fdAddr = '';
+        if (fdName.includes('|')) {
+          fdAddr = fdName.split('|')[1] ? fdName.split('|')[1].trim() : '';
+          fdName = fdName.split('|')[0].trim();
+        } else {
+          fdAddr = getAddr(fdName);
+        }
+        const fdFull = fdAddr ? fdName + ', ' + fdAddr : fdName;
+
+        // Get dates from pallet data and legs
+        const creationDate = pallet ? (pallet['Open Date']||'') : '';
+        // Get first pickup and last delivery from legs
+        const pLegs = (window._allLegsData || []).filter(l => (l['Pallet ID']||'').trim() === p.palletId).sort((a,b) => parseInt(a['Leg #']||0) - parseInt(b['Leg #']||0));
+        const pickupDate = pLegs.length > 0 ? (pLegs[0]['Pickup Scan Date']||'') : '';
+        const deliveredDate = pLegs.length > 0 ? (pLegs[pLegs.length - 1]['Dropoff Scan Date']||'') : '';
+
+        row.push(p.palletId, p.status, originFull, fdFull, creationDate, pickupDate, deliveredDate);
+      } else {
+        row.push('', '', '', '', '', '', '');
+      }
+    }
+    return row;
+  });
+
+  // Generate CSV
+  let csv = headers.map(h => '"' + h.replace(/"/g,'""') + '"').join(',') + '\n';
+  rows.forEach(row => {
+    csv += row.map(val => '"' + String(val).replace(/"/g,'""') + '"').join(',') + '\n';
+  });
+
+  // Download
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'frontier_muse_' + type + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV exported (' + ticketList.length + ' tickets)', 'success');
+}
+
+function filterMuseByStatus(status) {
+  if (status === 'Delivered') {
+    // Show delivered section
+    document.getElementById('museDeliveredSection').style.display = 'block';
+    document.getElementById('museDeliveredToggleBtn').textContent = 'Hide Delivered';
+    document.getElementById('museStatusFilter').value = '';
+  } else {
+    document.getElementById('museStatusFilter').value = status;
+  }
+  renderMuseTables();
+}
+
+function toggleMuseDelivered() {
+  const section = document.getElementById('museDeliveredSection');
+  const btn = document.getElementById('museDeliveredToggleBtn');
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    btn.textContent = 'Hide Delivered';
+  } else {
+    section.style.display = 'none';
+    btn.textContent = 'Show Delivered';
+  }
+}
+
+function renderMuseKpis() {
+  const inProcess = museTickets.filter(m => getOverallStatus(m.pallets) === 'In Process').length;
+  const partial = museTickets.filter(m => getOverallStatus(m.pallets) === 'Partially Delivered').length;
+  const delivered = museTickets.filter(m => getOverallStatus(m.pallets) === 'Delivered').length;
+  
+  document.getElementById('mkInProcess').textContent = inProcess;
+  document.getElementById('mkPartial').textContent = partial;
+  document.getElementById('mkDelivered').textContent = delivered;
 }
 
 function renderMuseTables() {
@@ -246,7 +395,11 @@ function renderMuseTables() {
   let filteredDelivered = deliveredTickets;
   if (deliveredFilter) filteredDelivered = filteredDelivered.filter(m => m.ticket.toLowerCase().includes(deliveredFilter));
 
+  // Render KPIs
+  renderMuseKpis();
+
   // Render active
+  document.getElementById('museActiveBadge').textContent = filteredActive.length;
   document.getElementById('museActiveCount').textContent = filteredActive.length + ' ticket' + (filteredActive.length !== 1 ? 's' : '');
   const activeWrap = document.getElementById('museActiveTableWrap');
   if (filteredActive.length === 0) {
@@ -268,6 +421,7 @@ function renderMuseTables() {
   }
 
   // Render delivered
+  document.getElementById('museDeliveredBadge').textContent = deliveredTickets.length;
   document.getElementById('museDeliveredCount').textContent = filteredDelivered.length + ' ticket' + (filteredDelivered.length !== 1 ? 's' : '');
   const deliveredWrap = document.getElementById('museDeliveredTableWrap');
   if (filteredDelivered.length === 0) {
@@ -308,8 +462,39 @@ function showMuseDetail(ticket) {
   // Fetch history for all associated pallets
   Promise.all(muse.pallets.map(p => jsonpRequest(scriptUrl, { action: 'pallethistory', palletid: p.palletId }))).then(results => {
     let html = '';
+
+    // Summary section
+    const overallStatus = getOverallStatus(muse.pallets);
+    const deliveredCount = muse.pallets.filter(p => p.status === 'Delivered').length;
+    const statusBadge = getStatusBadge(overallStatus);
+    html += '<div style="background:white;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">';
+    html += '<div style="display:flex;gap:24px;align-items:center;">';
+    html += '<div><span style="font-size:10px;color:#888;text-transform:uppercase;display:block;">Pallets</span><strong style="font-size:20px;color:#1a3a5c;">' + muse.pallets.length + '</strong></div>';
+    html += '<div><span style="font-size:10px;color:#888;text-transform:uppercase;display:block;">Delivered</span><strong style="font-size:20px;color:#28a745;">' + deliveredCount + ' / ' + muse.pallets.length + '</strong></div>';
+    html += '</div>';
+    html += '<div>' + statusBadge + '</div>';
+    html += '</div>';
+
     muse.pallets.forEach((p, idx) => {
-      const statusBadge = getStatusBadge(p.status);
+      const history = (results[idx] && results[idx].success) ? (results[idx].data || []) : [];
+      const actions = history.map(h => (h['Action']||'').toLowerCase());
+
+      // Determine which steps are complete
+      const steps = [
+        { label: 'Created', done: actions.some(a => a.includes('created')) },
+        { label: 'Closed', done: actions.some(a => a.includes('closed')) },
+        { label: 'Routed', done: actions.some(a => a.includes('route assigned')) },
+        { label: 'Picked Up', done: actions.some(a => a.includes('pickup scan')) },
+        { label: 'In Transit', done: p.status === 'In Transit' || actions.some(a => a.includes('pickup scan')) },
+        { label: 'Delivered', done: p.status === 'Delivered' }
+      ];
+
+      // Find the active step (last completed)
+      let activeIdx = -1;
+      for (let i = steps.length - 1; i >= 0; i--) {
+        if (steps[i].done) { activeIdx = i; break; }
+      }
+
       let fdDisplay = p.finalDest || '—';
       let fdAddr = '';
       if (fdDisplay.includes('|')) {
@@ -318,26 +503,56 @@ function showMuseDetail(ticket) {
       } else {
         fdAddr = getLocAddr(fdDisplay);
       }
-      const originAddr = getLocAddr(p.origin);
-      const currentAddr = getLocAddr(p.currentLocation);
 
       html += '<div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px;">';
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-      html += '<strong style="font-family:Consolas,monospace;font-size:16px;color:#1a3a5c;">' + escHtml(p.palletId) + '</strong>';
-      html += statusBadge;
+      
+      // Header
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
+      html += '<div><strong style="font-family:Consolas,monospace;font-size:16px;color:#1a3a5c;">' + escHtml(p.palletId) + '</strong>';
+      html += '<div style="font-size:11px;color:#888;margin-top:2px;">' + escHtml(p.origin) + ' → <strong>' + escHtml(fdDisplay) + '</strong></div>';
+      if (fdAddr) html += '<div style="font-size:11px;color:#555;margin-top:1px;">' + escHtml(fdAddr) + '</div>';
+      html += '</div>';
+      html += getStatusBadge(p.status === 'Delivered' ? 'Delivered' : 'In Process');
       html += '</div>';
 
-      // Info row with addresses
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:12px;">';
-      html += '<div><span style="color:#888;text-transform:uppercase;font-size:10px;display:block;">Origin</span><strong>' + escHtml(p.origin) + '</strong>' + (originAddr ? '<br><span style="color:#555;font-size:11px;">' + escHtml(originAddr) + '</span>' : '') + '</div>';
-      html += '<div><span style="color:#888;text-transform:uppercase;font-size:10px;display:block;">Current Location</span><strong>' + escHtml(p.currentLocation) + '</strong>' + (currentAddr ? '<br><span style="color:#555;font-size:11px;">' + escHtml(currentAddr) + '</span>' : '') + '</div>';
-      html += '<div><span style="color:#888;text-transform:uppercase;font-size:10px;display:block;">Final Destination</span><strong>' + escHtml(fdDisplay) + '</strong>' + (fdAddr ? '<br><span style="color:#555;font-size:11px;">' + escHtml(fdAddr) + '</span>' : '') + '</div>';
+      // Pizza tracker progress bar
+      html += '<div style="display:flex;align-items:center;margin-bottom:8px;">';
+      steps.forEach((step, i) => {
+        const isComplete = step.done;
+        const isActive = (i === activeIdx);
+        const dotColor = isComplete ? '#28a745' : '#ddd';
+        const dotBorder = isActive ? '3px solid #1a3a5c' : '2px solid ' + dotColor;
+        const labelColor = isComplete ? '#333' : '#bbb';
+        const labelWeight = isActive ? '700' : '400';
+
+        html += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;">';
+        html += '<div style="width:20px;height:20px;border-radius:50%;background:' + (isComplete ? '#28a745' : 'white') + ';border:' + dotBorder + ';display:flex;align-items:center;justify-content:center;">';
+        if (isComplete) html += '<span style="color:white;font-size:11px;font-weight:700;">✓</span>';
+        html += '</div>';
+        html += '<div style="font-size:9px;color:' + labelColor + ';font-weight:' + labelWeight + ';margin-top:4px;text-align:center;text-transform:uppercase;letter-spacing:0.3px;">' + step.label + '</div>';
+        html += '</div>';
+
+        // Connector line between dots
+        if (i < steps.length - 1) {
+          const lineColor = steps[i + 1].done ? '#28a745' : '#ddd';
+          html += '<div style="flex:0.5;height:3px;background:' + lineColor + ';border-radius:2px;margin:0 -4px;margin-bottom:16px;"></div>';
+        }
+      });
       html += '</div>';
 
-      // Timeline
-      const history = (results[idx] && results[idx].success) ? (results[idx].data || []) : [];
+      // Last activity
       if (history.length > 0) {
-        html += '<div style="font-size:11px;font-weight:600;color:#666;text-transform:uppercase;margin-bottom:6px;">Timeline</div>';
+        const last = history[history.length - 1];
+        html += '<div style="font-size:11px;color:#888;margin-top:8px;text-align:center;">Last: <strong>' + escHtml(last['Action']||'') + '</strong> — ' + fmtDate(last['Timestamp']||'') + '</div>';
+      }
+
+      // Collapsible timeline
+      if (history.length > 0) {
+        const tlId = 'timeline_' + idx;
+        html += '<div style="margin-top:10px;text-align:center;">';
+        html += '<button onclick="document.getElementById(\'' + tlId + '\').style.display=document.getElementById(\'' + tlId + '\').style.display===\'none\'?\'block\':\'none\';this.textContent=document.getElementById(\'' + tlId + '\').style.display===\'none\'?\'Show Timeline\':\'Hide Timeline\'" style="padding:4px 12px;background:none;border:1px solid #ddd;border-radius:4px;font-size:11px;color:#666;cursor:pointer;">Show Timeline</button>';
+        html += '</div>';
+        html += '<div id="' + tlId + '" style="display:none;margin-top:10px;">';
         html += '<ul class="timeline">';
         history.forEach(h => {
           const ts = fmtDate(h['Timestamp']||'');
@@ -349,10 +564,9 @@ function showMuseDetail(ticket) {
           html += '<div class="tl-meta">' + escHtml(ts) + (loc ? ' • ' + escHtml(loc) : '') + (usr ? ' • by ' + escHtml(usr) : '') + '</div>';
           html += '</div></li>';
         });
-        html += '</ul>';
-      } else {
-        html += '<div style="font-size:12px;color:#888;">No history available</div>';
+        html += '</ul></div>';
       }
+
       html += '</div>';
     });
 

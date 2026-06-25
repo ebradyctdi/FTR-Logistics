@@ -67,7 +67,6 @@
   <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
   <div class="sidebar-nav">
     <div class="nav-section">Views</div>
-    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
     <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
@@ -127,7 +126,7 @@
 <script>
 const URL_KEY = 'fs_script_url';
 let scriptUrl = '';
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwv4__hrZ716OYCEv17rqPXm8JWYLydiq85jl6QE_3jlyw7TaJg_gEnHlHTsHqfzwjA/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
@@ -217,7 +216,17 @@ function doScan(palletId) {
     return loc ? (loc['Address']||'') : '';
   }
   const pickupAddr = getLocAddress(currentLocation);
-  const destAddr = getLocAddress(destination);
+  // For destination, check hub locations first, then fall back to pallet's Final Destination custom address
+  let destAddr = getLocAddress(destination);
+  if (!destAddr) {
+    const pallet = (window._allPallets || []).find(p => (p['Pallet ID']||'').trim() === palletId.trim());
+    if (pallet && pallet['Final Destination'] && pallet['Final Destination'].includes('|')) {
+      const fdParts = pallet['Final Destination'].split('|');
+      if (fdParts[0].trim().toLowerCase() === destination.toLowerCase()) {
+        destAddr = fdParts[1] ? fdParts[1].trim() : '';
+      }
+    }
+  }
 
   const detailsHtml = '<div style="margin-bottom:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pallet ID</span><br><strong style="font-size:16px;font-family:Consolas,monospace;">' + escHtml(palletId.trim()) + '</strong></div>' +
     '<div style="margin-bottom:8px;border-top:1px solid #eee;padding-top:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Pickup Location</span><br><strong style="color:#1a3a5c;">' + escHtml(currentLocation) + '</strong>' + (pickupAddr ? '<br><span style="font-size:12px;color:#555;">' + escHtml(pickupAddr) + '</span>' : '') + '</div>' +
@@ -265,6 +274,8 @@ async function executeConfirmedScan() {
   document.getElementById('scanInput').focus();
   document.getElementById('statusDot').className = 'status-dot connected';
   document.getElementById('statusLabel').textContent = 'Ready';
+  // Refresh the awaiting pickup table
+  loadAwaitingPickup();
 }
 
 document.getElementById('scanInput').addEventListener('keydown', function(e) {
@@ -318,6 +329,7 @@ async function loadAwaitingPickup() {
 
     const rows = [];
     const pallets = palletsJson.data || [];
+    window._allPallets = pallets;
     Object.keys(palletLegsMap).forEach(pid => {
       const pLegs = palletLegsMap[pid].sort((a, b) => parseInt(a['Leg #']||0) - parseInt(b['Leg #']||0));
       // Find the first pending leg

@@ -82,7 +82,6 @@
   <div class="sidebar-brand"><img src="https://www.ctdi.com/wp-content/uploads/2020/12/ctdi-flat-logo-white-1024x223.png" alt="CTDI" style="width:100%;margin-bottom:10px;"><div class="sub">Frontier Shipping</div></div>
   <div class="sidebar-nav">
     <div class="nav-section">Views</div>
-    <a href="overview.html"><span class="icon">🏠</span> Overview</a>
     <a href="pallet-tracker.html"><span class="icon">🔍</span> Pallet Tracker</a>
     <a href="muse-tracker.html"><span class="icon">🎫</span> MUSE Tracker</a>
     <div class="nav-section">Pallet Build</div>
@@ -155,7 +154,7 @@ let hubLocations = [];
 let selectedPallet = null;
 let hubStops = [];
 let allPalletItems = [];
-try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbxvq77FFdpAGy53NZO7QqGRBjx-pW-dvUo-Av_Y7_ovpEgS2P6v9hiPrWB-Q_hVjXfq/exec'; } catch(e) {}
+try { scriptUrl = localStorage.getItem(URL_KEY) || 'https://script.google.com/macros/s/AKfycbwv4__hrZ716OYCEv17rqPXm8JWYLydiq85jl6QE_3jlyw7TaJg_gEnHlHTsHqfzwjA/exec'; } catch(e) {}
 
 function getUser() { return localStorage.getItem('fs_username') || 'Operator'; }
 
